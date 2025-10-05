@@ -1,0 +1,6 @@
+streamlit
+bcrypt
+Pillow
+sqlalchemy      
+mecab-python3
+unidic_lite

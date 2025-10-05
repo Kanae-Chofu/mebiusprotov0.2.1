@@ -1,0 +1,25 @@
+# Python関連
+__pycache__/
+*.py[cod]
+*.egg
+*.egg-info/
+dist/
+build/
+*.log
+
+# Streamlitキャッシュ
+.streamlit/
+
+# SQLiteデータベース
+#db/*.db
+
+# OS・エディタ系
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# 環境ファイル（必要に応じて）
+.env
+
+venv/
