@@ -49,12 +49,26 @@ def load_threads():
     finally:
         conn.close()
 
+def search_threads(keyword):
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        c = conn.cursor()
+        c.execute(
+            "SELECT id, title, created_at FROM threads WHERE title LIKE ? ORDER BY id DESC",
+            (f"%{keyword}%",)
+        )
+        return c.fetchall()
+    finally:
+        conn.close()
+
 def save_message(username, message, thread_id):
     conn = sqlite3.connect(DB_PATH)
     try:
         c = conn.cursor()
-        c.execute("INSERT INTO board_messages (username, message, timestamp, thread_id) VALUES (?, ?, ?, ?)",
-                  (username, message, now_str(), thread_id))
+        c.execute(
+            "INSERT INTO board_messages (username, message, timestamp, thread_id) VALUES (?, ?, ?, ?)",
+            (username, message, now_str(), thread_id)
+        )
         conn.commit()
     finally:
         conn.close()
@@ -63,7 +77,10 @@ def load_messages(thread_id):
     conn = sqlite3.connect(DB_PATH)
     try:
         c = conn.cursor()
-        c.execute("SELECT id, username, message, timestamp FROM board_messages WHERE thread_id=? ORDER BY id DESC", (thread_id,))
+        c.execute(
+            "SELECT id, username, message, timestamp FROM board_messages WHERE thread_id=? ORDER BY id DESC",
+            (thread_id,)
+        )
         return c.fetchall()
     finally:
         conn.close()
@@ -86,7 +103,15 @@ def render():
         return
 
     st.subheader("🧵 掲示板スレッド一覧")
-    threads = load_threads()
+
+    # 🔍 スレッド検索フォーム
+    search_keyword = st.text_input("🔎 スレッド検索（タイトル）")
+    if search_keyword:
+        threads = search_threads(search_keyword)
+        if not threads:
+            st.info("該当するスレッドはありません")
+    else:
+        threads = load_threads()
 
     # スレッド作成フォーム
     with st.form(key="thread_form", clear_on_submit=True):
@@ -102,6 +127,8 @@ def render():
                 st.warning("スレッド名を入力してください")
 
     st.markdown("---")
+
+    # スレッド一覧表示
     for tid, title, created in threads:
         if st.button(f"{title}（{created} JST）", key=f"thread_{tid}"):
             st.session_state.thread_id = tid
@@ -125,9 +152,13 @@ def render():
                         delete_message(mid)
                         st.rerun()
 
-        # メッセージ送信欄（Enterキーで送信可能）
+        # メッセージ送信欄
         msg = st.chat_input(f"メッセージ（{MAX_MESSAGE_LEN}文字まで）")
         if msg:
             msg = sanitize_message(msg, MAX_MESSAGE_LEN)
             save_message(user, msg, st.session_state.thread_id)
             st.rerun()
+
+# メイン
+if __name__ == "__main__":
+    render()
