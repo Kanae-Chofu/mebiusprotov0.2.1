@@ -85,7 +85,8 @@ def add_friend(user, friend):
     finally:
         conn.close()
 
-# UI表示
+from streamlit_autorefresh import st_autorefresh
+
 def render():
     init_chat_db()
     init_feedback_db()
@@ -97,6 +98,9 @@ def render():
 
     st.subheader("💬 1対1チャット空間")
     st.write(f"あなたの表示名： `{get_display_name(user)}`")
+
+    # 自動更新（3秒ごと）
+    st_autorefresh(interval=3000, limit=100, key="chat_refresh")
 
     # 友達追加
     st.markdown("---")
@@ -121,24 +125,23 @@ def render():
         st.session_state.partner = partner
         st.write(f"チャット相手： `{get_display_name(partner)}`")
 
-        # メッセージ表示（毎秒更新）
+        # メッセージ履歴（スクロール可能）
         st.markdown("---")
         st.subheader("📨 メッセージ履歴（自動更新）")
-        message_container = st.empty()
-        for _ in range(1):  # 初回のみ描画（無限ループは避ける）
-            with message_container:
-                messages = get_messages(user, partner)
-                for sender, msg in messages:
-                    align = "right" if sender == user else "left"
-                    bg = "#1F2F54" if align == "right" else "#426AB3"
-                    st.markdown(
-                        f"""<div style='text-align:{align}; margin:5px 0;'>
-                        <span style='background-color:{bg}; color:#FFFFFF; padding:8px 12px; border-radius:10px; display:inline-block; max-width:80%;'>
-                        {msg}
-                        </span></div>""", unsafe_allow_html=True
-                    )
-            time.sleep(1)
-            st.rerun()
+        messages = get_messages(user, partner)
+        st.markdown("""
+        <div style='height:400px; overflow-y:auto; border:1px solid #ccc; padding:10px; background-color:#f9f9f9;'>
+        """, unsafe_allow_html=True)
+        for sender, msg in messages:
+            align = "right" if sender == user else "left"
+            bg = "#1F2F54" if align == "right" else "#426AB3"
+            st.markdown(
+                f"""<div style='text-align:{align}; margin:5px 0;'>
+                <span style='background-color:{bg}; color:#FFFFFF; padding:8px 12px; border-radius:10px; display:inline-block; max-width:80%;'>
+                {msg}
+                </span></div>""", unsafe_allow_html=True
+            )
+        st.markdown("</div>", unsafe_allow_html=True)
 
         # メッセージ入力
         new_msg = st.chat_input("メッセージを入力")
@@ -183,3 +186,4 @@ def render():
             st.write(f"選択されたフィードバック：{selected}")
         else:
             st.write("まだフィードバックはありません。")
+            
