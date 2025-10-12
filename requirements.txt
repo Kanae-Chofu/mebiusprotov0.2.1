@@ -4,3 +4,4 @@ Pillow
 sqlalchemy      
 mecab-python3
 unidic_lite
+streamlit-autorefresh
