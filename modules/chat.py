@@ -146,8 +146,7 @@ def render():
 
         # メッセージ入力（最大10,000字制限 + UI表示）
         st.markdown("---")
-        st.markdown("### ✏️ メッセージ入力")
-        st.caption("※ 最大10,000字まで入力可能です。長文も歓迎ですが、制限を超えると送信できません。")
+        st.markdown("### メッセージ入力")
 
         new_msg = st.chat_input("ここにメッセージを入力してください")
         if new_msg:
