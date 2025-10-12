@@ -1,7 +1,7 @@
 import streamlit as st
 import sqlite3
-from streamlit_autorefresh import st_autorefresh
 import time
+from streamlit_autorefresh import st_autorefresh
 from modules.user import get_current_user, get_display_name
 from modules.utils import now_str
 from modules.feedback import (
@@ -23,7 +23,7 @@ from modules.feedback import (
 DB_PATH = "db/mebius.db"
 MAX_NAME_LEN = 64
 MAX_FEEDBACK_LEN = 150
-MAX_MESSAGE_LEN = 10000  # ← メッセージ最大文字数制限
+MAX_MESSAGE_LEN = 10000  # メッセージ最大文字数
 
 # DB初期化
 def init_chat_db():
@@ -144,11 +144,18 @@ def render():
             )
         st.markdown("</div>", unsafe_allow_html=True)
 
-        # メッセージ入力（最大10,000字制限）
-        new_msg = st.chat_input("メッセージを入力（最大10,000字）")
+        # メッセージ入力（最大10,000字制限 + UI表示）
+        st.markdown("---")
+        st.markdown("### ✏️ メッセージ入力")
+        st.caption("※ 最大10,000字まで入力可能です。長文も歓迎ですが、制限を超えると送信できません。")
+
+        new_msg = st.chat_input("ここにメッセージを入力してください")
         if new_msg:
-            if len(new_msg) > MAX_MESSAGE_LEN:
-                st.warning("メッセージは10,000字以内で入力してください")
+            char_count = len(new_msg)
+            st.caption(f"現在の文字数：{char_count} / {MAX_MESSAGE_LEN}")
+
+            if char_count > MAX_MESSAGE_LEN:
+                st.warning("⚠️ メッセージは10,000字以内で入力してください")
             else:
                 save_message(user, partner, new_msg)
                 st.rerun()
@@ -163,7 +170,7 @@ def render():
         st.write("・発言割合：" + auto_feedback(user, partner))
         st.write("・問いの頻度：" + question_feedback(user, partner))
         st.write("・感情語の使用：" + emotion_feedback(user, partner))
-        st.write("・自己開示度：" + disclosure_feedback(user,partner))
+        st.write("・自己開示度：" + disclosure_feedback(user, partner))
         st.write("・話題の広がり：" + diversity_feedback(user, partner))
         st.write("・関係性の継続性：" + continuity_duration_feedback(user, partner))
 
