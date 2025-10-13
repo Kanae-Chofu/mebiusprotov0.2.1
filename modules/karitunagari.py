@@ -152,12 +152,20 @@ def render():
                 {msg}
                 </span></div>""", unsafe_allow_html=True
             )
+        MAX_MESSAGE_LEN = 10000  # ファイル上部に追加
 
-        new_msg = st.chat_input("メッセージを入力")
+        # メッセージ入力（制限と文字数表示）
+        st.markdown("### ✏️ メッセージ入力（最大10,000字）")
+        new_msg = st.chat_input("ここにメッセージを入力してください")
         if new_msg:
-            theme = shared_theme or st.session_state.get("shared_theme")
-            save_message(kari_id, partner, new_msg, theme)
-            st.rerun()
+            char_count = len(new_msg)
+            st.caption(f"現在の文字数：{char_count} / {MAX_MESSAGE_LEN}")
+            if char_count > MAX_MESSAGE_LEN:
+                st.warning("⚠️ メッセージは10,000字以内で入力してください")
+            else:
+                theme = shared_theme or st.session_state.get("shared_theme")
+                save_message(kari_id, partner, new_msg, theme)
+                st.rerun()
 
         if len(messages) >= 6:
             st.success("この人と友達申請できます（3往復以上）")
