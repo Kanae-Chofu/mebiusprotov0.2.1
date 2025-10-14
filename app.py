@@ -1,5 +1,5 @@
-# app.py
 import streamlit as st
+import sqlite3
 
 # 🧭 ユーザー管理モジュールの読み込みと初期化
 from modules.user import (
@@ -57,10 +57,6 @@ if user is None:
         result = register_user(new_user, new_pass)
         if result == "OK":
             st.success("登録完了！ログイン画面に戻ってください")
-        elif result == "duplicate":
-            st.error("このユーザー名はすでに使われています")
-        elif result == "invalid":
-            st.error("ユーザー名またはパスワードが不正です")
         else:
             st.error(f"登録失敗：{result}")
     st.stop()
@@ -89,7 +85,7 @@ if show_editor:
 # 🚪 空間選択とルーティング
 st.markdown("---")
 st.subheader("🧭 空間を選んでください")
-space = st.radio("空間", ["掲示板", "仮つながりスペース", "1対1チャット"], horizontal=True)
+space = st.radio("空間", ["掲示板", "仮つながりスペース", "1対1チャット", "プロフィール"], horizontal=True)
 
 if space == "掲示板":
     board.render()
@@ -97,3 +93,56 @@ elif space == "仮つながりスペース":
     karitunagari.render()
 elif space == "1対1チャット":
     chat.render()
+elif space == "プロフィール":
+    st.subheader("🧬 プロフィール画面")
+
+    def get_user_profile(username):
+        conn = sqlite3.connect("db/mebius.db")
+        try:
+            c = conn.cursor()
+            c.execute("SELECT display_name, kari_id, registered_at FROM users WHERE username=?", (username,))
+            result = c.fetchone()
+            if result:
+                display_name, kari_id, registered_at = result
+                return {
+                    "username": username,
+                    "display_name": display_name or username,
+                    "kari_id": kari_id or username,
+                    "registered_at": registered_at
+                }
+        finally:
+            conn.close()
+        return None
+
+    def get_personality(username):
+        # 仮データ：将来的にはDBから取得
+        return {
+            "外向性": 3.8,
+            "協調性": 4.2,
+            "誠実性": 3.5,
+            "神経症傾向": 2.1,
+            "開放性": 4.7
+        }
+
+    target_user = st.text_input("表示したいユーザー名を入力", key="target_user_input")
+    if target_user:
+        profile = get_user_profile(target_user)
+        if profile:
+            st.markdown(f"**表示名：** `{profile['display_name']}`")
+            st.markdown(f"**仮ID：** `{profile['kari_id']}`")
+            st.markdown(f"**登録日：** `{profile['registered_at']}`")
+
+            st.markdown("---")
+            st.subheader("🧠 性格診断（Big Five）")
+            personality = get_personality(target_user)
+            for trait, score in personality.items():
+                st.write(f"・{trait}：{score} / 5")
+
+            st.markdown("---")
+            if user != target_user:
+                if st.button("このユーザーと友達になる"):
+                    st.success("友達申請を送信しました（仮）")
+            else:
+                st.info("これはあなた自身のプロフィールです")
+        else:
+            st.error("ユーザー情報が見つかりません")
