@@ -6,9 +6,9 @@ from modules.utils import now_str
 
 DB_PATH = "db/mebius.db"
 
-# 定数（設計意図の明示）
+# 話題カード
 TOPIC_CARDS = {
-        "猫": ["猫派？犬派？", "飼ってる猫の名前は？", "猫の仕草で好きなものは？"],
+    "猫": ["猫派？犬派？", "飼ってる猫の名前は？", "猫の仕草で好きなものは？"],
     "ゲーム": ["最近ハマってるゲームは？", "感動した瞬間は？", "推しキャラは？"],
     "旅行": ["最近行った場所は？", "旅先での思い出は？", "理想の旅って？"],
     "音楽": ["よく聴くジャンルは？", "好きなアーティストは？", "音楽で救われた瞬間ある？"],
@@ -32,7 +32,7 @@ TOPIC_CARDS = {
     "言葉": ["好きな言葉ある？", "座右の銘ってある？", "言葉に救われたことある？"]
 }
 
-# 🧱 DB初期化（仮メッセージ）
+# DB初期化
 def init_kari_db():
     conn = sqlite3.connect(DB_PATH)
     try:
@@ -54,7 +54,7 @@ def init_kari_db():
     finally:
         conn.close()
 
-# 💬 メッセージ保存・取得
+# メッセージ保存・取得
 def save_message(sender, receiver, message, theme=None):
     conn = sqlite3.connect(DB_PATH)
     try:
@@ -108,7 +108,7 @@ def get_friends(user):
     finally:
         conn.close()
 
-# 🖥 UI表示
+# UI表示
 def render():
     init_kari_db()
     user = get_current_user()
@@ -146,15 +146,15 @@ def render():
         for sender, msg in messages:
             align = "right" if sender == kari_id else "left"
             bg = "#1F2F54" if align == "right" else "#426AB3"
+            profile_link = f"[{sender}](?space=プロフィール&target_user={sender})"
             st.markdown(
                 f"""<div style='text-align:{align}; margin:5px 0;'>
                 <span style='background-color:{bg}; color:#FFFFFF; padding:8px 12px; border-radius:10px; display:inline-block; max-width:80%;'>
-                {msg}
+                {msg}<br><small>{profile_link}</small>
                 </span></div>""", unsafe_allow_html=True
             )
-        MAX_MESSAGE_LEN = 10000  # ファイル上部に追加
 
-        # メッセージ入力（制限と文字数表示）
+        MAX_MESSAGE_LEN = 10000
         st.markdown("### ✏️ メッセージ入力（最大10,000字）")
         new_msg = st.chat_input("ここにメッセージを入力してください")
         if new_msg:
@@ -165,19 +165,4 @@ def render():
             else:
                 theme = shared_theme or st.session_state.get("shared_theme")
                 save_message(kari_id, partner, new_msg, theme)
-                st.rerun()
-
-        if len(messages) >= 6:
-            st.success("この人と友達申請できます（3往復以上）")
-            if st.button("友達になる"):
-                add_friend(user, partner)
-                st.success("友達に追加しました！チャット空間で表示名に切り替わります")
-
-    st.divider()
-    st.subheader("👥 あなたの友達一覧")
-    friends = get_friends(user)
-    if friends:
-        for f in friends:
-            st.markdown(f"- `{f}` さん（チャット空間で表示名に切り替わります）")
-    else:
-        st.info("まだ友達はいません")
+                st.rer
