@@ -13,15 +13,15 @@ from modules.user import (
     get_kari_id
 )
 
-# 初回のみDB初期化（セッションステートで制御）
+from modules import board, karitunagari, chat
+from modules.utils import now_str
+
+# 初回のみDB初期化
 if "db_initialized" not in st.session_state:
     init_user_db()
     st.session_state.db_initialized = True
 
-# 🧩 空間モジュールの読み込み
-from modules import board, karitunagari, chat
-
-# 🌙 ダークモードCSS（共通）
+# 🌙 ダークモードCSS
 st.markdown("""
 <style>
 body, .stApp { background-color: #000000; color: #FFFFFF; }
@@ -38,7 +38,7 @@ st.caption("問いと沈黙から始まる、関係性の設計空間")
 
 user = get_current_user()
 
-# 🔐 ログイン画面（未ログイン時のみ表示）
+# 🔐 ログイン画面
 if user is None:
     st.subheader("🔐 ログイン")
     input_username = st.text_input("ユーザー名", key="login_username")
@@ -61,13 +61,12 @@ if user is None:
             st.error(f"登録失敗：{result}")
     st.stop()
 
-# 🪞 表示名・仮ID編集（ログイン後・表示切り替え可能）
+# 🪞 表示名・仮ID編集
 st.markdown("---")
 show_editor = st.checkbox("🪞 表示名・仮IDを編集する", value=False)
 
 if show_editor:
     st.subheader("🪞 あなたの関係性の見え方を編集")
-
     current_display = get_display_name(user)
     new_display = st.text_input("表示名（例：佳苗）", value=current_display, key="edit_display")
     if st.button("表示名を更新"):
@@ -82,11 +81,12 @@ if show_editor:
         st.success("仮IDを更新しました")
         st.rerun()
 
-# 🚪 空間選択とルーティング
+# 🚪 空間選択
 st.markdown("---")
 st.subheader("🧭 空間を選んでください")
-space = st.radio("空間", ["掲示板", "仮つながりスペース", "1対1チャット", "プロフィール"], horizontal=True)
+space = st.radio("空間", ["掲示板", "仮つながりスペース", "1対1チャット", "プロフィール", "自分のプロフィールを書く"], horizontal=True)
 
+# 🧩 空間ルーティング
 if space == "掲示板":
     board.render()
 elif space == "仮つながりスペース":
@@ -115,7 +115,6 @@ elif space == "プロフィール":
         return None
 
     def get_personality(username):
-        # 仮データ：将来的にはDBから取得
         return {
             "外向性": 3.8,
             "協調性": 4.2,
@@ -146,3 +145,53 @@ elif space == "プロフィール":
                 st.info("これはあなた自身のプロフィールです")
         else:
             st.error("ユーザー情報が見つかりません")
+
+elif space == "自分のプロフィールを書く":
+    st.subheader("📝 自分で書くプロフィール")
+
+    def init_profile_db():
+        conn = sqlite3.connect("db/mebius.db")
+        try:
+            c = conn.cursor()
+            c.execute('''CREATE TABLE IF NOT EXISTS user_profiles (
+                username TEXT PRIMARY KEY,
+                profile_text TEXT,
+                updated_at TEXT
+            )''')
+            conn.commit()
+        finally:
+            conn.close()
+
+    def save_profile(username, text):
+        conn = sqlite3.connect("db/mebius.db")
+        try:
+            c = conn.cursor()
+            c.execute("REPLACE INTO user_profiles (username, profile_text, updated_at) VALUES (?, ?, ?)",
+                      (username, text, now_str()))
+            conn.commit()
+        finally:
+            conn.close()
+
+    def load_profile(username):
+        conn = sqlite3.connect("db/mebius.db")
+        try:
+            c = conn.cursor()
+            c.execute("SELECT profile_text, updated_at FROM user_profiles WHERE username=?", (username,))
+            result = c.fetchone()
+            return result if result else ("", "")
+        finally:
+            conn.close()
+
+    init_profile_db()
+    current_text, updated = load_profile(user)
+    st.caption(f"最終更新：{updated}" if updated else "まだプロフィールは未記入です")
+
+    new_text = st.text_area("あなた自身の語りをここに書いてください", value=current_text, height=300)
+    if st.button("保存する"):
+        save_profile(user, new_text)
+        st.success("プロフィールを保存しました")
+        st.rerun()
+
+    st.markdown("---")
+    st.subheader("📖 あなたのプロフィール")
+    st.write(new_text if new_text else "（まだ書かれていません）")
