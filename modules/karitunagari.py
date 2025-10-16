@@ -134,7 +134,7 @@ def render():
             st.markdown(f"話題カード：**{TOPIC_CARDS[shared_theme][card_index]}**")
             if st.button("次の話題カード"):
                 st.session_state.card_index = (card_index + 1) % len(TOPIC_CARDS[shared_theme])
-                st.experimental_rerun()
+                st.rerun()
         else:
             # テーマを選ぶ
             choices = random.sample(list(TOPIC_CARDS.keys()), 2)
@@ -142,7 +142,7 @@ def render():
             if st.button("このテーマで話す"):
                 st.session_state.shared_theme = chosen
                 st.session_state.card_index = 0
-                st.experimental_rerun()
+                st.rerun()
 
         # メッセージ表示
         messages = get_messages(kari_id, partner)
@@ -170,4 +170,4 @@ def render():
                 theme = shared_theme or st.session_state.get("shared_theme")
                 save_message(kari_id, partner, new_msg, theme)
                 # 送信後に画面を更新
-                st.experimental_rerun()
+                st.rerun()
