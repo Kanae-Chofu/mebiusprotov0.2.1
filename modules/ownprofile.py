@@ -5,7 +5,9 @@ from modules.utils import now_str
 
 DB_PATH = "db/mebius.db"
 
-# DB初期化
+# ----------------------
+# DB操作
+# ----------------------
 def init_profile_db():
     conn = sqlite3.connect(DB_PATH)
     try:
@@ -19,7 +21,6 @@ def init_profile_db():
     finally:
         conn.close()
 
-# 保存
 def save_profile(username, text):
     conn = sqlite3.connect(DB_PATH)
     try:
@@ -30,7 +31,6 @@ def save_profile(username, text):
     finally:
         conn.close()
 
-# 取得
 def load_profile(username):
     conn = sqlite3.connect(DB_PATH)
     try:
@@ -41,7 +41,19 @@ def load_profile(username):
     finally:
         conn.close()
 
+def list_users():
+    """登録されているユーザー名一覧を取得"""
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        c = conn.cursor()
+        c.execute("SELECT username FROM user_profiles ORDER BY username")
+        return [row[0] for row in c.fetchall()]
+    finally:
+        conn.close()
+
+# ----------------------
 # UI表示
+# ----------------------
 def render():
     init_profile_db()
     user = get_current_user()
@@ -49,7 +61,10 @@ def render():
         st.warning("ログインしてください")
         return
 
-    st.title("📝 自分で書くプロフィール")
+    st.title("📝 プロフィール管理")
+
+    # --- 自分のプロフィール編集 ---
+    st.header("🔹 自分のプロフィール")
     current_text, updated = load_profile(user)
     st.caption(f"最終更新：{updated}" if updated else "まだプロフィールは未記入です")
 
@@ -57,8 +72,24 @@ def render():
     if st.button("保存する"):
         save_profile(user, new_text)
         st.success("プロフィールを保存しました")
-        st.rerun()
+        st.experimental_rerun()
 
     st.markdown("---")
-    st.subheader("📖 あなたのプロフィール")
-    st.write(new_text if new_text else "（まだ書かれていません）")
+
+    # --- 他人のプロフィール閲覧 ---
+    st.header("🔹 他のユーザーのプロフィールを見る")
+
+    all_users = list_users()
+    # 自分を除外して選択肢にする
+    other_users = [u for u in all_users if u != user]
+
+    if other_users:
+        selected_user = st.selectbox("ユーザーを選択", other_users)
+        profile_text, updated = load_profile(selected_user)
+        if profile_text:
+            st.caption(f"{selected_user} さんの最終更新：{updated}")
+            st.write(profile_text)
+        else:
+            st.info(f"{selected_user} さんのプロフィールはまだ登録されていません")
+    else:
+        st.info("他のユーザーのプロフィールはまだ登録されていません")
