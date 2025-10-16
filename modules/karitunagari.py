@@ -108,7 +108,6 @@ def get_friends(user):
     finally:
         conn.close()
 
-# UI表示
 def render():
     init_kari_db()
     user = get_current_user()
@@ -125,23 +124,27 @@ def render():
         st.session_state.partner = partner
         st.write(f"相手： `{partner}`")
 
+        # 共有テーマの取得
         shared_theme = get_shared_theme(kari_id, partner)
 
+        # テーマがある場合は話題カードを表示
         if shared_theme:
             card_index = st.session_state.get("card_index", 0)
             st.markdown(f"この会話のテーマ：**{shared_theme}**")
             st.markdown(f"話題カード：**{TOPIC_CARDS[shared_theme][card_index]}**")
             if st.button("次の話題カード"):
                 st.session_state.card_index = (card_index + 1) % len(TOPIC_CARDS[shared_theme])
-                st.rerun()
+                st.experimental_rerun()
         else:
+            # テーマを選ぶ
             choices = random.sample(list(TOPIC_CARDS.keys()), 2)
             chosen = st.radio("話したいテーマを選んでください", choices)
             if st.button("このテーマで話す"):
                 st.session_state.shared_theme = chosen
                 st.session_state.card_index = 0
-                st.rerun()
+                st.experimental_rerun()
 
+        # メッセージ表示
         messages = get_messages(kari_id, partner)
         for sender, msg in messages:
             align = "right" if sender == kari_id else "left"
@@ -154,6 +157,7 @@ def render():
                 </span></div>""", unsafe_allow_html=True
             )
 
+        # メッセージ入力部分
         MAX_MESSAGE_LEN = 10000
         st.markdown("### ✏️ メッセージ入力（最大10,000字）")
         new_msg = st.chat_input("ここにメッセージを入力してください")
@@ -165,4 +169,5 @@ def render():
             else:
                 theme = shared_theme or st.session_state.get("shared_theme")
                 save_message(kari_id, partner, new_msg, theme)
-                st.rer
+                # 送信後に画面を更新
+                st.experimental_rerun()
