@@ -20,12 +20,23 @@ from modules.feedback import (
     continuity_duration_feedback
 )
 
+# OpenAI関連
+import openai
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+openai.api_key = os.getenv("OPENAI_API_KEY")
+
 DB_PATH = "db/mebius.db"
 MAX_NAME_LEN = 64
 MAX_FEEDBACK_LEN = 150
 MAX_MESSAGE_LEN = 10000  # メッセージ最大文字数
+AI_NAME = "AIアシスタント"  # AIをチャット相手として扱う
 
+# -----------------------
 # DB初期化
+# -----------------------
 def init_chat_db():
     conn = sqlite3.connect(DB_PATH)
     try:
@@ -46,7 +57,9 @@ def init_chat_db():
     finally:
         conn.close()
 
+# -----------------------
 # メッセージ保存・取得
+# -----------------------
 def save_message(sender, receiver, message):
     conn = sqlite3.connect(DB_PATH)
     try:
@@ -68,7 +81,9 @@ def get_messages(user, partner):
     finally:
         conn.close()
 
+# -----------------------
 # 友達管理
+# -----------------------
 def get_friends(user):
     conn = sqlite3.connect(DB_PATH)
     try:
@@ -87,7 +102,22 @@ def add_friend(user, friend):
     finally:
         conn.close()
 
-# UI表示
+# -----------------------
+# OpenAIチャット関数
+# -----------------------
+def chat_with_ai(user_message, system_prompt="あなたは優しく誠実な対話相手です。"):
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message}
+        ]
+    )
+    return response["choices"][0]["message"]["content"]
+
+# -----------------------
+# Streamlit UI
+# -----------------------
 def render():
     init_chat_db()
     init_feedback_db()
@@ -115,24 +145,18 @@ def render():
         else:
             st.error("自分自身は追加できません")
 
-    # チャット相手選択
-    friends = get_friends(user)
-    if not friends:
-        st.info("まだ友達がいません。追加してください。")
-        return
-
+    # チャット相手選択（友達 + AI）
+    friends = get_friends(user) + [AI_NAME]
     partner = st.selectbox("チャット相手を選択", friends)
     if partner:
         st.session_state.partner = partner
-        st.write(f"チャット相手： `{get_display_name(partner)}`")
+        st.write(f"チャット相手： `{get_display_name(partner) if partner != AI_NAME else AI_NAME}`")
 
-        # メッセージ履歴（スクロール可能）
+        # メッセージ履歴表示
         st.markdown("---")
         st.subheader("📨 メッセージ履歴（自動更新）")
         messages = get_messages(user, partner)
-        st.markdown("""
-        <div style='height:400px; overflow-y:auto; border:1px solid #ccc; padding:10px; background-color:#f9f9f9;'>
-        """, unsafe_allow_html=True)
+        st.markdown("""<div style='height:400px; overflow-y:auto; border:1px solid #ccc; padding:10px; background-color:#f9f9f9;'>""", unsafe_allow_html=True)
         for sender, msg in messages:
             align = "right" if sender == user else "left"
             bg = "#1F2F54" if align == "right" else "#426AB3"
@@ -144,22 +168,27 @@ def render():
             )
         st.markdown("</div>", unsafe_allow_html=True)
 
-        # メッセージ入力（最大10,000字制限 + UI表示）
+        # メッセージ入力
         st.markdown("---")
         st.markdown("### メッセージ入力")
-
         new_msg = st.chat_input("ここにメッセージを入力してください")
         if new_msg:
             char_count = len(new_msg)
             st.caption(f"現在の文字数：{char_count} / {MAX_MESSAGE_LEN}")
-
             if char_count > MAX_MESSAGE_LEN:
                 st.warning("⚠️ メッセージは10,000字以内で入力してください")
             else:
+                # ユーザーメッセージを保存
                 save_message(user, partner, new_msg)
+
+                # AI相手の場合はAPI呼び出し
+                if partner == AI_NAME:
+                    ai_response = chat_with_ai(new_msg)
+                    save_message(AI_NAME, user, ai_response)
+
                 st.rerun()
 
-        # AIフィードバック（設計順に並べる）
+        # AIフィードバック
         st.markdown("---")
         st.markdown("### 🤖 AIフィードバック")
         st.write("・会話の長さ：" + length_feedback(user, partner))
