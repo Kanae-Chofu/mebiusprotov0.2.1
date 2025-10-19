@@ -20,6 +20,13 @@ from modules.feedback import (
     continuity_duration_feedback
 )
 
+import MeCab
+
+# Windowsの場合、辞書フォルダを指定
+mecab = MeCab.Tagger(r"-d C:\Program Files (x86)\MeCab\dic\ipadic")
+print(mecab.parse("こんにちは"))
+import sqlite3
+import streamlit as st
 # OpenAI関連
 import openai
 import os
