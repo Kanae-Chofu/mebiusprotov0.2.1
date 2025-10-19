@@ -20,26 +20,20 @@ from modules.feedback import (
     continuity_duration_feedback
 )
 
+# --- MeCab + unidic_lite セットアップ ---
 import MeCab
+import unidic_lite
 
-# Windowsの場合、辞書フォルダを指定
-mecab = MeCab.Tagger(r"-d C:\Program Files (x86)\MeCab\dic\ipadic")
-print(mecab.parse("こんにちは"))
-import sqlite3
-import streamlit as st
-# OpenAI関連
-import openai
-import os
-from dotenv import load_dotenv
+# unidic_lite の辞書を指定
+mecab = MeCab.Tagger(f"-d {unidic_lite.DICDIR}")
+print(mecab.parse("こんにちは"))  # 確認用
 
-load_dotenv()
-openai.api_key = os.getenv("OPENAI_API_KEY")
-
+# --- DB パスと制限値 ---
 DB_PATH = "db/mebius.db"
 MAX_NAME_LEN = 64
 MAX_FEEDBACK_LEN = 150
 MAX_MESSAGE_LEN = 10000  # メッセージ最大文字数
-AI_NAME = "AIアシスタント"  # AIをチャット相手として扱う
+AI_NAME = "AIアシスタント"
 
 # -----------------------
 # DB初期化
@@ -110,19 +104,6 @@ def add_friend(user, friend):
         conn.close()
 
 # -----------------------
-# OpenAIチャット関数
-# -----------------------
-def chat_with_ai(user_message, system_prompt="あなたは優しく誠実な対話相手です。"):
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message}
-        ]
-    )
-    return response["choices"][0]["message"]["content"]
-
-# -----------------------
 # Streamlit UI
 # -----------------------
 def render():
@@ -137,7 +118,7 @@ def render():
     st.subheader("💬 1対1チャット空間")
     st.write(f"あなたの表示名： `{get_display_name(user)}`")
 
-    # 自動更新（3秒ごと）
+    # 自動更新
     st_autorefresh(interval=3000, limit=100, key="chat_refresh")
 
     # 友達追加
@@ -163,15 +144,15 @@ def render():
         st.markdown("---")
         st.subheader("📨 メッセージ履歴（自動更新）")
         messages = get_messages(user, partner)
-        st.markdown("""<div style='height:400px; overflow-y:auto; border:1px solid #ccc; padding:10px; background-color:#f9f9f9;'>""", unsafe_allow_html=True)
+        st.markdown("<div style='height:400px; overflow-y:auto; border:1px solid #ccc; padding:10px; background-color:#f9f9f9;'>", unsafe_allow_html=True)
         for sender, msg in messages:
             align = "right" if sender == user else "left"
             bg = "#1F2F54" if align == "right" else "#426AB3"
             st.markdown(
-                f"""<div style='text-align:{align}; margin:5px 0;'>
-                <span style='background-color:{bg}; color:#FFFFFF; padding:8px 12px; border-radius:10px; display:inline-block; max-width:80%;'>
-                {msg}
-                </span></div>""", unsafe_allow_html=True
+                f"<div style='text-align:{align}; margin:5px 0;'>"
+                f"<span style='background-color:{bg}; color:#FFFFFF; padding:8px 12px; border-radius:10px; display:inline-block; max-width:80%;'>"
+                f"{msg}"
+                f"</span></div>", unsafe_allow_html=True
             )
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -185,14 +166,7 @@ def render():
             if char_count > MAX_MESSAGE_LEN:
                 st.warning("⚠️ メッセージは10,000字以内で入力してください")
             else:
-                # ユーザーメッセージを保存
                 save_message(user, partner, new_msg)
-
-                # AI相手の場合はAPI呼び出し
-                if partner == AI_NAME:
-                    ai_response = chat_with_ai(new_msg)
-                    save_message(AI_NAME, user, ai_response)
-
                 st.rerun()
 
         # AIフィードバック
@@ -212,7 +186,6 @@ def render():
         # 手動フィードバック入力
         st.markdown("---")
         st.markdown("### 📝 あなたのフィードバック")
-        st.write("この会話を振り返って、どんなことを感じましたか？問いでも、感想でも、ひとことでもOKです。")
         feedback_text = st.text_input("フィードバックを入力", key="feedback_input", max_chars=MAX_FEEDBACK_LEN)
         if st.button("送信"):
             if feedback_text:
