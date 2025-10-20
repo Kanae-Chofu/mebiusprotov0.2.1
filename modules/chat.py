@@ -23,10 +23,23 @@ from modules.feedback import (
 # --- MeCab + unidic_lite セットアップ ---
 import MeCab
 import unidic_lite
+import os
 
-# unidic_lite の辞書を指定
-mecab = MeCab.Tagger(f"-d {unidic_lite.DICDIR}")
-print(mecab.parse("こんにちは"))  # 確認用
+# パスの区切りを OS に合わせて正規化
+dic_dir = os.path.normpath(unidic_lite.DICDIR)
+
+# Windows では / 区切りに変換（MeCab 側の不具合回避）
+dic_dir = dic_dir.replace("\\", "/")
+
+# 明示的に辞書ディレクトリを指定
+mecab = MeCab.Tagger(f"-d {dic_dir}")
+
+# テスト出力（Streamlitではprintの代わりにst.write推奨）
+try:
+    st.write(mecab.parse("こんにちは"))
+except Exception as e:
+    st.error(f"MeCabの初期化に失敗しました: {e}")
+
 
 # --- DB パスと制限値 ---
 DB_PATH = "db/mebius.db"
