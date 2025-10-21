@@ -5,3 +5,10 @@ sqlalchemy
 mecab-python3
 unidic_lite
 streamlit-autorefresh
+Credentials
+python-dotenv
+Flow
+google.oauth2.credentials
+google-auth
+google-auth-oauthlib    
+google_auth_oauthlib.flow
