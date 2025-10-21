@@ -1,7 +1,11 @@
 import streamlit as st
 import sqlite3
+import json
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import Flow
+import os
 
-# 🧭 ユーザー管理モジュールの読み込みと初期化
+# 🧭 ユーザー管理モジュールの読み込み
 from modules.user import (
     login_user as login_user_func,
     register_user,
@@ -12,11 +16,14 @@ from modules.user import (
     get_display_name,
     get_kari_id
 )
-
 from modules import board, karitunagari, chat
 from modules.utils import now_str
 
-# 初回のみDB初期化
+# =====================================================
+# 🔰 初期設定
+# =====================================================
+
+# DB初期化
 if "db_initialized" not in st.session_state:
     init_user_db()
     st.session_state.db_initialized = True
@@ -32,13 +39,15 @@ button { background-color: #426AB3 !important; color:#FFFFFF !important; border:
 </style>
 """, unsafe_allow_html=True)
 
-# 🧭 タイトルとログインチェック
+# タイトル
 st.title("めびうす redesign")
 st.caption("問いと沈黙から始まる、関係性の設計空間")
 
+# =====================================================
+# 🔐 ログイン処理
+# =====================================================
 user = get_current_user()
 
-# 🔐 ログイン画面
 if user is None:
     st.subheader("🔐 ログイン")
     input_username = st.text_input("ユーザー名", key="login_username")
@@ -61,7 +70,9 @@ if user is None:
             st.error(f"登録失敗：{result}")
     st.stop()
 
+# =====================================================
 # 🪞 表示名・仮ID編集
+# =====================================================
 st.markdown("---")
 show_editor = st.checkbox("🪞 表示名・仮IDを編集する", value=False)
 
@@ -81,18 +92,72 @@ if show_editor:
         st.success("仮IDを更新しました")
         st.rerun()
 
+# =====================================================
+# ☁️ Googleアカウントバックアップ機能
+# =====================================================
+st.markdown("---")
+st.subheader("☁️ Googleアカウントでバックアップ / 復元")
+
+# クライアントシークレットファイルの設定
+CLIENT_SECRETS_FILE = "client_secret.json"  # Google CloudからDLしたJSON
+SCOPES = ["https://www.googleapis.com/auth/drive.file"]
+
+def google_auth():
+    """OAuth認証フローを開始"""
+    flow = Flow.from_client_secrets_file(
+        CLIENT_SECRETS_FILE,
+        scopes=SCOPES,
+        redirect_uri="http://localhost:8501"
+    )
+    auth_url, _ = flow.authorization_url(prompt="consent")
+    st.markdown(f"[Googleで認証する]({auth_url})")
+
+if not os.path.exists(CLIENT_SECRETS_FILE):
+    st.warning("⚠️ Google連携を使うには client_secret.json が必要です")
+else:
+    if st.button("🔐 Google連携でバックアップする"):
+        display = get_display_name(user)
+        kari = get_kari_id(user)
+        backup_data = {
+            "display_name": display,
+            "kari_id": kari,
+            "username": user,
+            "timestamp": now_str()
+        }
+        with open(f"{user}_backup.json", "w", encoding="utf-8") as f:
+            json.dump(backup_data, f, ensure_ascii=False, indent=2)
+        st.success("✅ バックアップデータを生成しました（Driveアップロード準備OK）")
+
+    if st.button("🔁 Google連携で復元する"):
+        try:
+            with open(f"{user}_backup.json", "r", encoding="utf-8") as f:
+                data = json.load(f)
+            update_display_name(user, data["display_name"])
+            update_kari_id(user, data["kari_id"])
+            st.success(f"✅ 表示名と仮IDを復元しました（{data['timestamp']}のバックアップ）")
+            st.rerun()
+        except FileNotFoundError:
+            st.error("バックアップファイルが見つかりません")
+
+# =====================================================
 # 🚪 空間選択
+# =====================================================
 st.markdown("---")
 st.subheader("🧭 空間を選んでください")
 space = st.radio("空間", ["掲示板", "仮つながりスペース", "1対1チャット", "プロフィール", "自分のプロフィールを書く"], horizontal=True)
 
-# 🧩 空間ルーティング
+# =====================================================
+# 🧩 各モードの描画
+# =====================================================
 if space == "掲示板":
     board.render()
+
 elif space == "仮つながりスペース":
     karitunagari.render()
+
 elif space == "1対1チャット":
     chat.render()
+
 elif space == "プロフィール":
     st.subheader("🧬 プロフィール画面")
 
