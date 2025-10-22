@@ -109,20 +109,18 @@ from openai import OpenAI
 client = OpenAI()  # 必要なら OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def generate_ai_response(user):
-    """GPTでユーザーの最新メッセージに応答（OpenAI Python v1+ 用）"""
     messages = get_messages(user, AI_NAME)
     last_msg = messages[-1][1] if messages else "こんにちは！"
     prompt = f"あなたは親切なチャットAIです。ユーザーの発言に対して自然に返答してください。\n\nユーザー: {last_msg}\nAI:"
 
     try:
         resp = client.chat.completions.create(
-            model="gpt-3.5-turbo",            # 使いたいモデル名を指定
+            model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=150,
             temperature=0.7
         )
-        # レスポンスから本文を取り出す（旧APIと同様の構造）
-        return resp.choices[0].message.content.strip()
+        return resp.choices[0].message.content
     except Exception as e:
         return f"AI応答でエラーが発生しました: {e}"
 
