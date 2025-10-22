@@ -110,17 +110,18 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))  # client生成
 def generate_ai_response(user):
     messages = get_messages(user, AI_NAME)
     last_msg = messages[-1][1] if messages else "こんにちは！"
-    prompt = f"あなたは親切なチャットAIです。ユーザーの発言に自然に返答してください。\n\nユーザー: {last_msg}\nAI:"
 
     try:
         resp = client.chat.completions.create(
-            model="gpt-5-nano",  # GPT-5 nano に変更
-            messages=[{"role": "user", "content": prompt}],
+            model="gpt-5-nano",
+            messages=[
+                {"role": "system", "content": "あなたは親切なチャットAIです。ユーザーの発言に自然に返答してください。"},
+                {"role": "user", "content": last_msg}
+            ],
             max_tokens=150,
             temperature=0.7
         )
-        # 新APIでは choices[0].message['content'] 形式
-        return resp.choices[0].message["content"].strip()
+        return resp.choices[0].message.content.strip()
     except Exception as e:
         return f"AI応答でエラーが発生しました: {e}"
 
