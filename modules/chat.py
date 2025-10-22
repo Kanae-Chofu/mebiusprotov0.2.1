@@ -1,7 +1,7 @@
 import streamlit as st
 import sqlite3
 import os
-import openai
+from openai import openai
 from streamlit_autorefresh import st_autorefresh
 from modules.user import get_current_user, get_display_name
 from modules.utils import now_str
@@ -103,24 +103,24 @@ def get_stamp_images():
     files = [f for f in os.listdir(stamp_dir) if f.lower().endswith((".png", ".jpg", ".jpeg", ".gif"))]
     return [os.path.join(stamp_dir, f) for f in files]
 
-# ファイル先頭付近で（既に openai.api_key を使っているなら不要）
 from openai import OpenAI
-# 環境変数 OPENAI_API_KEY がセットされている想定
-client = OpenAI()  # 必要なら OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))  # client生成
 
 def generate_ai_response(user):
     messages = get_messages(user, AI_NAME)
     last_msg = messages[-1][1] if messages else "こんにちは！"
-    prompt = f"あなたは親切なチャットAIです。ユーザーの発言に対して自然に返答してください。\n\nユーザー: {last_msg}\nAI:"
+    prompt = f"あなたは親切なチャットAIです。ユーザーの発言に自然に返答してください。\n\nユーザー: {last_msg}\nAI:"
 
     try:
         resp = client.chat.completions.create(
-            model="gpt-5-nano",
+            model="gpt-5-nano",  # GPT-5 nano に変更
             messages=[{"role": "user", "content": prompt}],
             max_tokens=150,
             temperature=0.7
         )
-        return resp.choices[0].message.content
+        # 新APIでは choices[0].message['content'] 形式
+        return resp.choices[0].message["content"].strip()
     except Exception as e:
         return f"AI応答でエラーが発生しました: {e}"
 
