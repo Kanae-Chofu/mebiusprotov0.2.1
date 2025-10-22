@@ -21,6 +21,9 @@ from modules.feedback import (
     continuity_duration_feedback
 )
 
+from dotenv import load_dotenv  # ← これを追加！
+load_dotenv()  # ← これが重要！
+
 # --- OpenAI APIキー設定 ---
 openai.api_key = os.getenv("OPENAI_API_KEY")
 AI_NAME = "AIアシスタント"
