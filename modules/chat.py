@@ -1,7 +1,7 @@
+# chat.py (OpenAI 1.0対応版)
 import streamlit as st
 import sqlite3
 import os
-import openai
 from streamlit_autorefresh import st_autorefresh
 from modules.user import get_current_user, get_display_name
 from modules.utils import now_str
@@ -20,18 +20,18 @@ from modules.feedback import (
     continuity_feedback,
     continuity_duration_feedback
 )
+from dotenv import load_dotenv
+load_dotenv()
 
-from dotenv import load_dotenv  # ← これを追加！
-load_dotenv()  # ← これが重要！
-
-# --- OpenAI APIキー設定 ---
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# --- OpenAI 新APIクライアント ---
+from openai import OpenAI
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 AI_NAME = "AIアシスタント"
 
-# --- スタンプ定義 ---
+# --- スタンプ ---
 STAMPS = ["😀", "😂", "❤️", "👍", "😢", "🎉", "🔥", "🤔"]
 
-# --- データベース ---
+# --- DB ---
 DB_PATH = "db/mebius.db"
 
 def init_chat_db():
@@ -94,19 +94,14 @@ def add_friend(user, friend):
     finally:
         conn.close()
 
-# --- スタンプ関連 ---
+# --- スタンプ画像 ---
 def get_stamp_images():
-    """stampsフォルダ内のスタンプ画像一覧を取得"""
     stamp_dir = "stamps"
     if not os.path.exists(stamp_dir):
         os.makedirs(stamp_dir)
-    files = [f for f in os.listdir(stamp_dir) if f.lower().endswith((".png", ".jpg", ".jpeg", ".gif"))]
-    return [os.path.join(stamp_dir, f) for f in files]
+    return [os.path.join(stamp_dir, f) for f in os.listdir(stamp_dir) if f.lower().endswith((".png", ".jpg", ".jpeg", ".gif"))]
 
-from openai import OpenAI
-
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))  # client生成
-
+# --- AI応答 ---
 def generate_ai_response(user):
     messages = get_messages(user, AI_NAME)
     last_msg = messages[-1][1] if messages else "こんにちは！"
@@ -124,8 +119,7 @@ def generate_ai_response(user):
         return resp.choices[0].message.content.strip()
     except Exception as e:
         return f"AI応答でエラーが発生しました: {e}"
-
-
+    
 # --- メインUI ---
 def render():
     init_chat_db()
