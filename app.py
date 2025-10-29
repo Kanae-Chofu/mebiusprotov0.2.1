@@ -4,6 +4,7 @@ import json
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 import os
+import chatkai
 
 # 🧭 ユーザー管理モジュールの読み込み
 from modules.user import (
