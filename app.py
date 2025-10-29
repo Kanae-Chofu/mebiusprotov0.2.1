@@ -156,7 +156,7 @@ elif space == "仮つながりスペース":
     karitunagari.render()
 
 elif space == "1対1チャット":
-    chat.render()
+    chatkai.render()
 
 elif space == "プロフィール":
     st.subheader("🧬 プロフィール画面")
