@@ -1,4 +1,4 @@
-# chat.py (改修版)
+# chatkai.py (改修版)
 import streamlit as st
 import sqlite3
 import os
@@ -59,8 +59,10 @@ def save_message(sender, receiver, message, message_type="text"):
     conn = sqlite3.connect(DB_PATH)
     try:
         c = conn.cursor()
-        c.execute("INSERT INTO chat_messages (sender, receiver, message, timestamp, message_type) VALUES (?, ?, ?, ?, ?)",
-                  (sender, receiver, message, now_str(), message_type))
+        c.execute(
+            "INSERT INTO chat_messages (sender, receiver, message, timestamp, message_type) VALUES (?, ?, ?, ?, ?)",
+            (sender, receiver, message, now_str(), message_type)
+        )
         conn.commit()
     except Exception as e:
         st.error(f"DB保存エラー: {e}")
@@ -119,7 +121,6 @@ def get_stamp_images():
 # --- AI応答 ---
 def generate_ai_response(user):
     messages = get_messages(user, AI_NAME)
-    # 過去5件までをまとめて送信
     messages_for_ai = [{"role":"user","content":msg} for _, msg, _ in messages[-5:]] or [{"role":"user","content":"こんにちは！"}]
     try:
         resp = client.chat.completions.create(
@@ -154,7 +155,7 @@ def render():
     # --- 友達追加 ---
     st.markdown("---")
     st.subheader("👥 友達を管理")
-    users_list = get_all_users()  # 全ユーザーリスト取得
+    users_list = get_all_users()
     new_friend = st.text_input("追加したいユーザー名", key="add_friend_input", max_chars=64)
     col1, col2 = st.columns([1,1])
     with col1:
@@ -203,7 +204,6 @@ def render():
     # --- メッセージ入力 ---
     st.markdown("---")
     st.markdown("### 💌 メッセージ入力")
-    # 絵文字スタンプ
     st.markdown("#### 🙂 テキストスタンプを送る")
     cols = st.columns(len(STAMPS))
     for i, stamp in enumerate(STAMPS):
@@ -214,7 +214,6 @@ def render():
                 save_message(AI_NAME, user, ai_reply)
             st.rerun()
 
-    # 画像スタンプ
     st.markdown("#### 🖼 画像スタンプを送る")
     stamp_images = get_stamp_images()
     if stamp_images:
@@ -231,7 +230,6 @@ def render():
     else:
         st.info("スタンプ画像がまだありません。`/stamps/` フォルダに画像を追加してください。")
 
-    # スタンプアップロード
     st.markdown("#### 📤 新しいスタンプを追加")
     uploaded = st.file_uploader("画像ファイルをアップロード (.png, .jpg, .gif)", type=["png", "jpg", "jpeg", "gif"])
     if uploaded:
@@ -244,7 +242,6 @@ def render():
         except Exception as e:
             st.error(f"スタンプ保存エラー: {e}")
 
-    # 通常メッセージ
     new_msg = st.chat_input("ここにメッセージを入力してください")
     st.session_state.chat_input_active = bool(new_msg)
     if new_msg:
@@ -271,7 +268,6 @@ def render():
         else:
             st.warning("フィードバックを入力してください")
 
-    # --- 過去のフィードバック ---
     st.markdown("---")
     st.markdown("### 🕊 過去のフィードバックを振り返る")
     feedback_list = get_feedback(user, partner)
@@ -280,8 +276,4 @@ def render():
         selected = st.selectbox("表示したいフィードバックを選んでください", options)
         st.write(f"選択されたフィードバック：{selected}")
     else:
-        st.write("まだフィードバックはありません。")
-
-# --- Streamlit実行 ---
-if __name__ == "__main__":
-    render()
+        st.write("まだフィードバックはありません
