@@ -276,4 +276,9 @@ def render():
         selected = st.selectbox("表示したいフィードバックを選んでください", options)
         st.write(f"選択されたフィードバック：{selected}")
     else:
-        st.write("まだフィードバックはありません
+        st.write("まだフィードバックはありません。")
+
+
+# --- Streamlit実行 ---
+if __name__ == "__main__":
+    render()
