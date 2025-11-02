@@ -84,6 +84,54 @@ def get_personality(username):
 # ----------------------
 # UI表示
 # ----------------------
+def render_profile(target_user):
+    """指定ユーザーのプロフィール画面（Big Five含む）"""
+    profile_info = get_user_profile(target_user)
+    if not profile_info:
+        st.error("ユーザー情報が見つかりません")
+        return
+
+    st.title("🧬 プロフィール画面")
+    st.markdown(f"**表示名：** `{profile_info['display_name']}`")
+    st.markdown(f"**仮ID：** `{profile_info['kari_id']}`")
+    st.markdown(f"**登録日：** `{profile_info['registered_at']}`")
+
+    # 自己プロフィール（自由記述）
+    st.markdown("---")
+    st.subheader("📖 自己プロフィール")
+    profile_text, updated = load_profile(target_user)
+    if target_user == get_current_user():
+        # 自分なら編集可能
+        new_text = st.text_area("あなた自身の語りをここに書いてください", value=profile_text, height=200)
+        if st.button("保存する", key="save_profile"):
+            save_profile(target_user, new_text)
+            st.success("プロフィールを保存しました")
+            st.experimental_rerun()
+    else:
+        # 他人なら表示のみ
+        if profile_text:
+            st.caption(f"{target_user} さんの最終更新：{updated}")
+            st.write(profile_text)
+        else:
+            st.info(f"{target_user} さんのプロフィールはまだ登録されていません")
+
+    # 性格診断
+    st.markdown("---")
+    st.subheader("🧠 性格診断（Big Five）")
+    personality = get_personality(target_user)
+    for trait, score in personality.items():
+        st.write(f"・{trait}：{score} / 5")
+
+    # 関係性アクション
+    if target_user != get_current_user():
+        st.markdown("---")
+        st.subheader("🤝 関係性アクション")
+        if st.button(f"{target_user} さんと友達になる", key="friend_btn"):
+            st.success("友達申請を送信しました（仮）")
+
+# ----------------------
+# メイン
+# ----------------------
 def render():
     init_profile_db()
     user = get_current_user()
@@ -91,64 +139,13 @@ def render():
         st.warning("ログインしてください")
         return
 
-    st.title("📝 プロフィール管理・ユーザー情報")
-
-    # --- 自分のプロフィール編集 ---
-    st.header("🔹 自分のプロフィール")
-    current_text, updated = load_profile(user)
-    st.caption(f"最終更新：{updated}" if updated else "まだプロフィールは未記入です")
-    new_text = st.text_area("あなた自身の語りをここに書いてください", value=current_text, height=200)
-    if st.button("保存する"):
-        save_profile(user, new_text)
-        st.success("プロフィールを保存しました")
-        st.experimental_rerun()
-
-    st.markdown("---")
-
-    # --- 他人のプロフィール閲覧 ---
-    st.header("🔹 他のユーザーのプロフィールを見る")
+    # ユーザー選択（自分も選べる）
     all_users = list_users()
-    other_users = [u for u in all_users if u != user]
+    if user not in all_users:
+        all_users.append(user)  # 自分も追加
+    selected_user = st.selectbox("表示したいユーザーを選択", all_users)
 
-    if other_users:
-        selected_user = st.selectbox("ユーザーを選択", other_users)
+    render_profile(selected_user)
 
-        # 自己プロフィール
-        profile_text, updated = load_profile(selected_user)
-        st.subheader("📖 自己プロフィール")
-        if profile_text:
-            st.caption(f"{selected_user} さんの最終更新：{updated}")
-            st.write(profile_text)
-        else:
-            st.info("まだプロフィールは登録されていません")
-
-        # ユーザー情報
-        profile_info = get_user_profile(selected_user)
-        if profile_info:
-            st.markdown("---")
-            st.subheader("🧬 ユーザー情報")
-            st.markdown(f"**表示名：** `{profile_info['display_name']}`")
-            st.markdown(f"**仮ID：** `{profile_info['kari_id']}`")
-            st.markdown(f"**登録日：** `{profile_info['registered_at']}`")
-
-        # 性格診断
-        st.markdown("---")
-        st.subheader("🧠 性格診断（Big Five）")
-        personality = get_personality(selected_user)
-        for trait, score in personality.items():
-            st.write(f"・{trait}：{score} / 5")
-
-        # 関係性アクション
-        st.markdown("---")
-        st.subheader("🤝 関係性アクション")
-        if st.button(f"{selected_user} さんと友達になる"):
-            st.success("友達申請を送信しました（仮）")
-
-    else:
-        st.info("他のユーザーのプロフィールはまだ登録されていません")
-
-# ----------------------
-# メイン
-# ----------------------
 if __name__ == "__main__":
     render()
