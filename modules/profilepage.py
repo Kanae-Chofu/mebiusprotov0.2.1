@@ -113,14 +113,14 @@ def render():
     if other_users:
         selected_user = st.selectbox("ユーザーを選択", other_users)
 
-        # プロフィールテキスト（自己紹介）
+        # 自己プロフィール
         profile_text, updated = load_profile(selected_user)
         st.subheader("📖 自己プロフィール")
         if profile_text:
             st.caption(f"{selected_user} さんの最終更新：{updated}")
             st.write(profile_text)
         else:
-            st.info(f"{selected_user} さんのプロフィールはまだ登録されていません")
+            st.info("まだプロフィールは登録されていません")
 
         # ユーザー情報
         profile_info = get_user_profile(selected_user)
