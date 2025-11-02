@@ -136,3 +136,19 @@ def get_friends(username):
 # 🔓 ログアウト
 def logout():
     st.session_state.username = None
+
+# modules/user.py の末尾などに追加
+
+import sqlite3
+
+DB_PATH = "db/mebius.db"
+
+def get_all_users():
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        c = conn.cursor()
+        c.execute("SELECT username FROM user_profiles ORDER BY username")
+        users = [row[0] for row in c.fetchall()]
+        return users
+    finally:
+        conn.close()
