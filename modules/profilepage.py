@@ -82,10 +82,27 @@ def get_personality(username):
     }
 
 # ----------------------
-# UI表示
+# 自己プロフィールUI（単独）
+# ----------------------
+def render_self_profile_editor():
+    user = get_current_user()
+    if not user:
+        st.warning("ログインしてください")
+        return
+
+    st.header("🔹 自己プロフィール記述")
+    current_text, updated = load_profile(user)
+    st.caption(f"最終更新：{updated}" if updated else "まだプロフィールは未記入です")
+    new_text = st.text_area("あなた自身の語りをここに書いてください", value=current_text, height=200)
+    if st.button("保存する", key="save_self_profile"):
+        save_profile(user, new_text)
+        st.success("プロフィールを保存しました")
+        st.experimental_rerun()
+
+# ----------------------
+# プロフィール画面（表示のみ）
 # ----------------------
 def render_profile(target_user):
-    """指定ユーザーのプロフィール画面（Big Five含む）"""
     profile_info = get_user_profile(target_user)
     if not profile_info:
         st.error("ユーザー情報が見つかりません")
@@ -96,24 +113,15 @@ def render_profile(target_user):
     st.markdown(f"**仮ID：** `{profile_info['kari_id']}`")
     st.markdown(f"**登録日：** `{profile_info['registered_at']}`")
 
-    # 自己プロフィール（自由記述）
+    # 自己プロフィール表示（編集不可）
     st.markdown("---")
     st.subheader("📖 自己プロフィール")
     profile_text, updated = load_profile(target_user)
-    if target_user == get_current_user():
-        # 自分なら編集可能
-        new_text = st.text_area("あなた自身の語りをここに書いてください", value=profile_text, height=200)
-        if st.button("保存する", key="save_profile"):
-            save_profile(target_user, new_text)
-            st.success("プロフィールを保存しました")
-            st.experimental_rerun()
+    if profile_text:
+        st.caption(f"{target_user} さんの最終更新：{updated}")
+        st.write(profile_text)
     else:
-        # 他人なら表示のみ
-        if profile_text:
-            st.caption(f"{target_user} さんの最終更新：{updated}")
-            st.write(profile_text)
-        else:
-            st.info(f"{target_user} さんのプロフィールはまだ登録されていません")
+        st.info("プロフィールはまだ登録されていません")
 
     # 性格診断
     st.markdown("---")
@@ -126,7 +134,7 @@ def render_profile(target_user):
     if target_user != get_current_user():
         st.markdown("---")
         st.subheader("🤝 関係性アクション")
-        if st.button(f"{target_user} さんと友達になる", key="friend_btn"):
+        if st.button(f"{target_user} さんと友達になる", key=f"friend_{target_user}"):
             st.success("友達申請を送信しました（仮）")
 
 # ----------------------
@@ -134,18 +142,23 @@ def render_profile(target_user):
 # ----------------------
 def render():
     init_profile_db()
-    user = get_current_user()
-    if not user:
-        st.warning("ログインしてください")
-        return
+    st.title("プロフィール管理アプリ")
 
-    # ユーザー選択（自分も選べる）
+    # --- 自己プロフィール記述ブロック ---
+    render_self_profile_editor()
+    st.markdown("---")
+
+    # --- プロフィール閲覧ブロック ---
     all_users = list_users()
-    if user not in all_users:
-        all_users.append(user)  # 自分も追加
-    selected_user = st.selectbox("表示したいユーザーを選択", all_users)
+    current_user = get_current_user()
+    if current_user and current_user not in all_users:
+        all_users.append(current_user)  # 自分も追加
 
-    render_profile(selected_user)
+    if all_users:
+        selected_user = st.selectbox("表示したいユーザーを選択", all_users)
+        render_profile(selected_user)
+    else:
+        st.info("登録されているユーザーはまだいません")
 
 if __name__ == "__main__":
     render()
