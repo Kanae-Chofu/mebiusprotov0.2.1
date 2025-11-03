@@ -76,25 +76,22 @@ def get_personality(username):
     }
 
 # ----------------------
-# 自己プロフィール編集（独立）
+# 自己プロフィール編集（Markdown対応）
 # ----------------------
 def render_my_profile_editor(user):
-    st.header("📝 自分のプロフィールを自由に書く")
+    st.header("📝 自分のプロフィールを書く")
     current_text, updated = load_profile(user)
-    
     st.caption(f"最終更新：{updated}" if updated else "まだプロフィールは未記入です")
-    
-    # Markdown対応テキストエリア
+
     new_text = st.text_area(
         "ここに自分の語りを書いてください（Markdown可）",
         value=current_text,
         height=200
     )
-    
-    # プレビュー
+
     st.subheader("プレビュー")
     st.markdown(new_text if new_text else "_ここにプレビューが表示されます_")
-    
+
     if st.button("保存する", key="save_my_profile"):
         save_profile(user, new_text)
         st.success("プロフィールを保存しました")
@@ -109,12 +106,11 @@ def render_profile_view(target_user):
         st.error("ユーザー情報が見つかりません")
         return
 
-    st.title("🧬 プロフィール閲覧")
+    st.title(f"🧬 {target_user} さんのプロフィール")
     st.markdown(f"**表示名：** `{profile_info['display_name']}`")
     st.markdown(f"**仮ID：** `{profile_info['kari_id']}`")
     st.markdown(f"**登録日：** `{profile_info['registered_at']}`")
 
-    # 自己プロフィール（閲覧のみ）
     st.markdown("---")
     st.subheader("📖 自己プロフィール")
     profile_text, updated = load_profile(target_user)
@@ -124,13 +120,11 @@ def render_profile_view(target_user):
     else:
         st.info("プロフィールはまだ登録されていません")
 
-    # 性格診断
     st.markdown("---")
     st.subheader("🧠 性格診断（Big Five）")
     personality = get_personality(target_user)
     st.bar_chart({k: [v] for k, v in personality.items()})
 
-    # 関係性アクション
     current_user = get_current_user()
     if target_user != current_user:
         st.markdown("---")
@@ -156,16 +150,19 @@ def render():
         st.warning("ログインしてください")
         return
 
-    # 🔹 自己プロフィール編集（独立）
-    render_my_profile_editor(user)
-    st.markdown("---")
-
-    # 🔹 プロフィール閲覧（自分も他人も）
     all_users = list_users()
     if user not in all_users:
         all_users.append(user)
-    selected_user = st.selectbox("表示したいユーザーを選択", all_users)
-    render_profile_view(selected_user)
+
+    # 🔹 タブで完全独立
+    tab = st.tabs(["自分のプロフィールを書く", "プロフィール閲覧"])
+
+    with tab[0]:
+        render_my_profile_editor(user)
+
+    with tab[1]:
+        selected_user = st.selectbox("表示したいユーザーを選択", all_users)
+        render_profile_view(selected_user)
 
 if __name__ == "__main__":
     render()
