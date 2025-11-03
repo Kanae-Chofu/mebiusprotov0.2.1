@@ -76,13 +76,25 @@ def get_personality(username):
     }
 
 # ----------------------
-# 自己プロフィール編集
+# 自己プロフィール編集（Markdown対応）
 # ----------------------
 def render_self_profile_editor(user):
     st.header("🔹 自己プロフィール記述")
     current_text, updated = load_profile(user)
+    
     st.caption(f"最終更新：{updated}" if updated else "まだプロフィールは未記入です")
-    new_text = st.text_area("あなた自身の語りをここに書いてください", value=current_text, height=200)
+    
+    # Markdown対応テキストエリア
+    new_text = st.text_area(
+        "あなた自身の語りをここに書いてください（Markdown可）",
+        value=current_text,
+        height=200
+    )
+    
+    # Markdownプレビュー
+    st.subheader("プレビュー")
+    st.markdown(new_text if new_text else "_プロフィールがここに表示されます_")
+    
     if st.button("保存する", key="save_self_profile"):
         save_profile(user, new_text)
         st.success("プロフィールを保存しました")
@@ -108,7 +120,7 @@ def render_profile(target_user):
     profile_text, updated = load_profile(target_user)
     if profile_text:
         st.caption(f"{target_user} さんの最終更新：{updated}")
-        st.write(profile_text)
+        st.markdown(profile_text)  # Markdown表示
     else:
         st.info("プロフィールはまだ登録されていません")
 
@@ -116,8 +128,6 @@ def render_profile(target_user):
     st.markdown("---")
     st.subheader("🧠 性格診断（Big Five）")
     personality = get_personality(target_user)
-    scores = [v for v in personality.values()]
-    traits = [k for k in personality.keys()]
     st.bar_chart({k: [v] for k, v in personality.items()})
 
     # 関係性アクション
