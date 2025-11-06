@@ -67,24 +67,25 @@ if user is None:
 # =====================================================
 # 🪞 表示名・仮ID編集
 # =====================================================
-st.markdown("---")
-show_editor = st.checkbox("🪞 表示名・仮IDを編集する", value=False)
+#
+#st.markdown("---")
+#show_editor = st.checkbox("🪞 表示名・仮IDを編集する", value=False)
 
-if show_editor:
-    st.subheader("🪞 あなたの関係性の見え方を編集")
-    current_display = get_display_name(user)
-    new_display = st.text_input("表示名（例：佳苗）", value=current_display, key="edit_display")
-    if st.button("表示名を更新"):
-        update_display_name(user, new_display)
-        st.success("表示名を更新しました")
-        st.rerun()
+#if show_editor:
+#    st.subheader("🪞 あなたの関係性の見え方を編集")
+#    current_display = get_display_name(user)
+#    new_display = st.text_input("表示名（例：佳苗）", value=current_display, key="edit_display")
+#    if st.button("表示名を更新"):
+#        update_display_name(user, new_display)
+#       st.success("表示名を更新しました")
+#        st.rerun()
 
-    current_kari = get_kari_id(user)
-    new_kari = st.text_input("仮ID（例：kari_1234）", value=current_kari, key="edit_kari")
-    if st.button("仮IDを更新"):
-        update_kari_id(user, new_kari)
-        st.success("仮IDを更新しました")
-        st.rerun()
+#    current_kari = get_kari_id(user)
+#    new_kari = st.text_input("仮ID（例：kari_1234）", value=current_kari, key="edit_kari")
+#    if st.button("仮IDを更新"):
+#        update_kari_id(user, new_kari)
+#        st.success("仮IDを更新しました")
+#        st.rerun()
 
 # =====================================================
 # 🚪 空間選択
