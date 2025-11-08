@@ -1,24 +1,14 @@
-# chatkai.py (改修版)
+# chatkai_newapi.py
 import streamlit as st
 import sqlite3
 import os
 from streamlit_autorefresh import st_autorefresh
-from modules.user import get_current_user, get_display_name, get_all_users  # get_all_users追加
+from modules.user import get_current_user, get_display_name, get_all_users
 from modules.utils import now_str
 from modules.feedback import (
     init_feedback_db,
     save_feedback,
     get_feedback,
-    auto_feedback,
-    question_feedback,
-    silence_feedback,
-    emotion_feedback,
-    response_feedback,
-    length_feedback,
-    diversity_feedback,
-    disclosure_feedback,
-    continuity_feedback,
-    continuity_duration_feedback
 )
 from dotenv import load_dotenv
 load_dotenv()
@@ -64,8 +54,6 @@ def save_message(sender, receiver, message, message_type="text"):
             (sender, receiver, message, now_str(), message_type)
         )
         conn.commit()
-    except Exception as e:
-        st.error(f"DB保存エラー: {e}")
     finally:
         conn.close()
 
@@ -95,8 +83,6 @@ def add_friend(user, friend):
         c = conn.cursor()
         c.execute("INSERT OR IGNORE INTO friends (user, friend) VALUES (?, ?)", (user, friend))
         conn.commit()
-    except Exception as e:
-        st.error(f"友達追加エラー: {e}")
     finally:
         conn.close()
 
@@ -106,8 +92,6 @@ def remove_friend(user, friend):
         c = conn.cursor()
         c.execute("DELETE FROM friends WHERE user=? AND friend=?", (user, friend))
         conn.commit()
-    except Exception as e:
-        st.error(f"友達削除エラー: {e}")
     finally:
         conn.close()
 
@@ -121,8 +105,7 @@ def get_stamp_images():
 # --- AI応答 ---
 def generate_ai_response(user):
     messages = get_messages(user, AI_NAME)
-    messages_for_ai = [{"role":"user","content":msg} for _, msg, _ in messages[-5:]] or [{"role":"user","content":"こんにちは！"}]
-
+    messages_for_ai = [{"role": "user", "content": msg} for _, msg, _ in messages[-5:]] or [{"role":"user","content":"こんにちは！"}]
     try:
         resp = client.chat.completions.create(
             model="gpt-5-nano",
@@ -130,12 +113,9 @@ def generate_ai_response(user):
             max_tokens=150,
             temperature=0.7
         )
-        # ここを新API対応
-        return resp.choices[0].message['content'].strip()
-
+        return resp.choices[0].message['content'].strip()  # ←新API対応
     except Exception as e:
         return f"AI応答でエラーが発生しました: {e}"
-
 
 # --- メインUI ---
 def render():
@@ -195,7 +175,6 @@ def render():
     for sender, msg, msg_type in messages:
         align = "right" if sender == user else "left"
         bg = "#1F2F54" if align == "right" else "#426AB3"
-
         if msg_type == "stamp" and os.path.exists(msg):
             st.markdown(f"<div style='text-align:{align}; margin:10px 0;'><img src='{msg}' style='width:100px; border-radius:10px;'></div>", unsafe_allow_html=True)
         elif len(msg.strip()) <= 2 and all('\U0001F300' <= c <= '\U0001FAFF' or c in '❤️🔥🎉' for c in msg):
@@ -238,27 +217,24 @@ def render():
     uploaded = st.file_uploader("画像ファイルをアップロード (.png, .jpg, .gif)", type=["png", "jpg", "jpeg", "gif"])
     if uploaded:
         save_path = os.path.join("stamps", uploaded.name)
-        try:
-            with open(save_path, "wb") as f:
-                f.write(uploaded.getbuffer())
-            st.success(f"スタンプ {uploaded.name} を追加しました！")
-            st.rerun()
-        except Exception as e:
-            st.error(f"スタンプ保存エラー: {e}")
+        with open(save_path, "wb") as f:
+            f.write(uploaded.getbuffer())
+        st.success(f"スタンプ {uploaded.name} を追加しました！")
+        st.rerun()
 
     new_msg = st.chat_input("ここにメッセージを入力してください")
     st.session_state.chat_input_active = bool(new_msg)
     if new_msg:
         char_count = len(new_msg)
         st.caption(f"現在の文字数：{char_count} / 10000")
-        if char_count > 10000:
-            st.warning("⚠️ メッセージは10,000字以内で入力してください")
-        else:
+        if char_count <= 10000:
             save_message(user, partner, new_msg)
             if partner == AI_NAME:
                 ai_reply = generate_ai_response(user)
                 save_message(AI_NAME, user, ai_reply)
             st.rerun()
+        else:
+            st.warning("⚠️ メッセージは10,000字以内で入力してください")
 
     # --- 手動フィードバック ---
     st.markdown("---")
@@ -281,7 +257,6 @@ def render():
         st.write(f"選択されたフィードバック：{selected}")
     else:
         st.write("まだフィードバックはありません。")
-
 
 # --- Streamlit実行 ---
 if __name__ == "__main__":
