@@ -1,4 +1,4 @@
-# chatkai_newapi.py (絵文字自動対応版)
+# chatkai_newapi.py (絵文字自動対応＋リアクション・お気に入り版)
 import streamlit as st
 import sqlite3
 import os
@@ -16,8 +16,7 @@ from openai import OpenAI
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 AI_NAME = "AIアシスタント"
 
-# --- 絵文字スタンプ ---
-# UI崩れを防ぐため最大30個
+# --- 絵文字スタンプ（最大30個） ---
 STAMPS = [e for e in emoji.EMOJI_DATA.keys() if e in "😀😂❤️👍😢🎉🔥🤔🥰😎🙌💀🌟🍕☕🛹🐶🐱🐭🐹🐰🦊🐻🐼🦁🐮🐷🐸"][:30]
 
 # --- DB ---
@@ -40,6 +39,11 @@ def init_chat_db():
             friend TEXT,
             UNIQUE(user, friend)
         )''')
+        c.execute('''CREATE TABLE IF NOT EXISTS reactions (
+            message_id INTEGER,
+            reaction TEXT,
+            PRIMARY KEY (message_id, reaction)
+        )''')
         conn.commit()
     finally:
         conn.close()
@@ -52,7 +56,27 @@ def save_message(sender, receiver, message, message_type="text"):
             "INSERT INTO chat_messages (sender, receiver, message, timestamp, message_type) VALUES (?, ?, ?, ?, ?)",
             (sender, receiver, message, now_str(), message_type)
         )
+        msg_id = c.lastrowid
         conn.commit()
+        return msg_id
+    finally:
+        conn.close()
+
+def add_reaction(message_id, reaction):
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        c = conn.cursor()
+        c.execute("INSERT OR IGNORE INTO reactions (message_id, reaction) VALUES (?, ?)", (message_id, reaction))
+        conn.commit()
+    finally:
+        conn.close()
+
+def get_reactions(message_id):
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        c = conn.cursor()
+        c.execute("SELECT reaction FROM reactions WHERE message_id=?", (message_id,))
+        return [r[0] for r in c.fetchall()]
     finally:
         conn.close()
 
@@ -60,7 +84,7 @@ def get_messages(user, partner):
     conn = sqlite3.connect(DB_PATH)
     try:
         c = conn.cursor()
-        c.execute('''SELECT sender, message, message_type FROM chat_messages
+        c.execute('''SELECT id, sender, message, message_type FROM chat_messages
                      WHERE (sender=? AND receiver=?) OR (sender=? AND receiver=?)
                      ORDER BY timestamp''', (user, partner, partner, user))
         return c.fetchall()
@@ -104,7 +128,7 @@ def get_stamp_images():
 # --- AI応答生成 ---
 def generate_ai_response(user):
     messages = get_messages(user, AI_NAME)
-    messages_for_ai = [{"role": "user", "content": msg} for _, msg, _ in messages[-5:]] or [{"role":"user","content":"こんにちは！"}]
+    messages_for_ai = [{"role": "user", "content": msg} for _, _, msg, _ in messages[-5:]] or [{"role":"user","content":"こんにちは！"}]
 
     try:
         resp = client.chat.completions.create(
@@ -175,7 +199,7 @@ def render():
     st.subheader("📨 メッセージ履歴（自動更新）")
     messages = get_messages(user, partner)
     st.markdown("<div id='chat-box' style='height:400px; overflow-y:auto; border:1px solid #ccc; padding:10px; background-color:#f9f9f9;'>", unsafe_allow_html=True)
-    for sender, msg, msg_type in messages:
+    for msg_id, sender, msg, msg_type in messages:
         align = "right" if sender == user else "left"
         bg = "#1F2F54" if align == "right" else "#426AB3"
         if msg_type == "stamp" and os.path.exists(msg):
@@ -184,21 +208,46 @@ def render():
             st.markdown(f"<div style='text-align:{align}; margin:5px 0;'><span style='font-size:40px;'>{msg}</span></div>", unsafe_allow_html=True)
         else:
             st.markdown(f"<div style='text-align:{align}; margin:5px 0;'><span style='background-color:{bg}; color:#FFFFFF; padding:8px 12px; border-radius:10px; display:inline-block; max-width:80%;'>{msg}</span></div>", unsafe_allow_html=True)
+
+        # --- リアクション表示 ---
+        current_reacts = get_reactions(msg_id)
+        if current_reacts:
+            st.markdown(f"<div style='text-align:{align}; font-size:14px; color:#444;'>リアクション: {' '.join(current_reacts)}</div>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
     st.markdown("<script>var chatBox = document.getElementById('chat-box'); chatBox.scrollTop = chatBox.scrollHeight;</script>", unsafe_allow_html=True)
 
     # --- メッセージ入力 ---
     st.markdown("---")
     st.markdown("### 💌 メッセージ入力")
-    st.markdown("#### 🙂 テキストスタンプを送る")
+    st.markdown("#### 🙂 テキストスタンプを送る（お気に入り＆リアクション対応）")
+
+    if "favorites" not in st.session_state:
+        st.session_state.favorites = []
+    REACTIONS = ["👍","❤️","😂","😮","😢","🔥","🎉","🤔"]
+
     cols = st.columns(len(STAMPS))
     for i, stamp in enumerate(STAMPS):
-        if cols[i].button(stamp, key=f"stamp_{stamp}"):
-            save_message(user, partner, stamp)
-            if partner == AI_NAME:
-                ai_reply = generate_ai_response(user)
-                save_message(AI_NAME, user, ai_reply)
-            st.rerun()
+        with cols[i]:
+            col1, col2 = st.columns([2,1])
+            with col1:
+                if st.button(stamp, key=f"stamp_{stamp}"):
+                    msg_id = save_message(user, partner, stamp)
+                    if partner == AI_NAME:
+                        ai_reply = generate_ai_response(user)
+                        save_message(AI_NAME, user, ai_reply)
+                    st.rerun()
+            with col2:
+                if st.button("★", key=f"fav_btn_{i}"):
+                    if stamp not in st.session_state.favorites:
+                        st.session_state.favorites.append(stamp)
+                        st.success(f"{stamp} をお気に入りに追加")
+
+        # --- リアクションボタン ---
+        for r in REACTIONS:
+            if st.button(r, key=f"react_{i}_{r}"):
+                last_msg_id = get_messages(user, partner)[-1][0]  # 最新メッセージID
+                add_reaction(last_msg_id, r)
+                st.rerun()
 
     st.markdown("#### 🖼 画像スタンプを送る")
     stamp_images = get_stamp_images()
