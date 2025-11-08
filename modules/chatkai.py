@@ -115,8 +115,8 @@ def generate_ai_response(user):
         resp = client.chat.completions.create(
             model="gpt-5-nano",
             messages=[{"role":"system","content":"あなたは親切なチャットAIです。過去の会話も踏まえて自然に返答してください。"}] + messages_for_ai,
-            max_completion_tokens=150,   # 新API仕様
-            temperature=0.7
+            max_completion_tokens=150  # 新API仕様
+            # temperature は削除
         )
         content = getattr(resp.choices[0].message, "content", None)
         if content is None:
@@ -124,6 +124,7 @@ def generate_ai_response(user):
         return content.strip()
     except Exception as e:
         return f"AI応答でエラーが発生しました: {e}"
+
 
 # --- メインUI ---
 def render():
