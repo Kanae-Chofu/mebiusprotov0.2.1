@@ -122,6 +122,7 @@ def get_stamp_images():
 def generate_ai_response(user):
     messages = get_messages(user, AI_NAME)
     messages_for_ai = [{"role":"user","content":msg} for _, msg, _ in messages[-5:]] or [{"role":"user","content":"こんにちは！"}]
+
     try:
         resp = client.chat.completions.create(
             model="gpt-5-nano",
@@ -129,9 +130,12 @@ def generate_ai_response(user):
             max_tokens=150,
             temperature=0.7
         )
-        return resp.choices[0].message.content.strip()
+        # ここを新API対応
+        return resp.choices[0].message['content'].strip()
+
     except Exception as e:
         return f"AI応答でエラーが発生しました: {e}"
+
 
 # --- メインUI ---
 def render():
