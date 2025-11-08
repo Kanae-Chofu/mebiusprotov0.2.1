@@ -102,10 +102,11 @@ def get_stamp_images():
         os.makedirs(stamp_dir)
     return [os.path.join(stamp_dir, f) for f in os.listdir(stamp_dir) if f.lower().endswith((".png", ".jpg", ".jpeg", ".gif"))]
 
-# --- AI応答 ---
+# --- AI応答生成 ---
 def generate_ai_response(user):
     messages = get_messages(user, AI_NAME)
     messages_for_ai = [{"role": "user", "content": msg} for _, msg, _ in messages[-5:]] or [{"role":"user","content":"こんにちは！"}]
+
     try:
         resp = client.chat.completions.create(
             model="gpt-5-nano",
@@ -113,9 +114,14 @@ def generate_ai_response(user):
             max_tokens=150,
             temperature=0.7
         )
-        return resp.choices[0].message['content'].strip()  # ←新API対応
+        # 安全にアクセス
+        content = getattr(resp.choices[0].message, "content", None)
+        if content is None:
+            return "AI応答でエラーが発生しました（message.contentが取得できません）"
+        return content.strip()
     except Exception as e:
         return f"AI応答でエラーが発生しました: {e}"
+
 
 # --- メインUI ---
 def render():
