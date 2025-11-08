@@ -1,4 +1,4 @@
-# chatkai_newapi_ui.py (絵文字グリッド対応版)
+# chatkai_newapi.py
 import streamlit as st
 import sqlite3
 import os
@@ -17,9 +17,13 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 AI_NAME = "AIアシスタント"
 
 # --- 絵文字スタンプ ---
-# UI崩れ防止のため最大32個（8列×4行）
-UI_EMOJIS = "😀😂❤️👍😢🎉🔥🤔🥰😎🙌💀🌟🍕☕🛹🐶🐱🐭🐹🐰🦊🐻🐼🦁🐮🐷🐸"
-STAMPS = [e for e in UI_EMOJIS if e in emoji.EMOJI_DATA.keys()]
+# 実用的なものを30個、UIは1行8個×4行で表示
+STAMPS = [
+    "😀","😂","❤️","👍","😢","🎉","🔥","🤔",
+    "🥰","😎","🙌","💀","🌟","🍕","☕","🛹",
+    "🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼",
+    "🦁","🐮","🐷","🐸","🐵","🦄"
+]
 
 # --- DB ---
 DB_PATH = "db/mebius.db"
@@ -111,7 +115,7 @@ def generate_ai_response(user):
         resp = client.chat.completions.create(
             model="gpt-5-nano",
             messages=[{"role":"system","content":"あなたは親切なチャットAIです。過去の会話も踏まえて自然に返答してください。"}] + messages_for_ai,
-            max_tokens=150,
+            max_completion_tokens=150,   # 新API仕様
             temperature=0.7
         )
         content = getattr(resp.choices[0].message, "content", None)
@@ -191,26 +195,18 @@ def render():
     # --- メッセージ入力 ---
     st.markdown("---")
     st.markdown("### 💌 メッセージ入力")
-
-    # --- テキストスタンプ（8列×複数行グリッド） ---
     st.markdown("#### 🙂 テキストスタンプを送る")
-    MAX_COLS = 8
-    rows = (len(STAMPS) + MAX_COLS - 1) // MAX_COLS
-    for r in range(rows):
-        cols = st.columns(MAX_COLS)
-        for c in range(MAX_COLS):
-            idx = r * MAX_COLS + c
-            if idx >= len(STAMPS):
-                break
-            stamp = STAMPS[idx]
-            if cols[c].button(stamp, key=f"stamp_{stamp}"):
+    # スタンプは8個ずつの行で表示
+    for row in range(0, len(STAMPS), 8):
+        cols = st.columns(8)
+        for i, stamp in enumerate(STAMPS[row:row+8]):
+            if cols[i].button(stamp, key=f"stamp_{stamp}"):
                 save_message(user, partner, stamp)
                 if partner == AI_NAME:
                     ai_reply = generate_ai_response(user)
                     save_message(AI_NAME, user, ai_reply)
                 st.rerun()
 
-    # --- 画像スタンプ ---
     st.markdown("#### 🖼 画像スタンプを送る")
     stamp_images = get_stamp_images()
     if stamp_images:
@@ -236,7 +232,6 @@ def render():
         st.success(f"スタンプ {uploaded.name} を追加しました！")
         st.rerun()
 
-    # --- チャット入力 ---
     new_msg = st.chat_input("ここにメッセージを入力してください")
     st.session_state.chat_input_active = bool(new_msg)
     if new_msg:
@@ -251,7 +246,7 @@ def render():
         else:
             st.warning("⚠️ メッセージは10,000字以内で入力してください")
 
-    # --- フィードバック ---
+    # --- 手動フィードバック ---
     st.markdown("---")
     st.markdown("### 📝 あなたのフィードバック")
     feedback_text = st.text_input("フィードバックを入力", key="feedback_input", max_chars=150)
