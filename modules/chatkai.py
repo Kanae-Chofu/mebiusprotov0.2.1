@@ -1,4 +1,4 @@
-# chatkai_newapi_safe_ui.py
+# chatkai_newapi_autorefresh.py
 import streamlit as st
 import sqlite3
 import os
@@ -6,8 +6,8 @@ from modules.user import get_current_user, get_display_name, get_all_users
 from modules.utils import now_str
 from modules.feedback import init_feedback_db, save_feedback, get_feedback
 from dotenv import load_dotenv
-import emoji
 from openai import OpenAI
+from streamlit_autorefresh import st_autorefresh
 
 load_dotenv()
 
@@ -92,7 +92,7 @@ def get_stamp_images():
     return [os.path.join(stamp_dir, f) for f in os.listdir(stamp_dir)
             if f.lower().endswith((".png", ".jpg", ".jpeg", ".gif"))]
 
-# --- AI応答生成（安全版） ---
+# --- AI応答生成 ---
 def generate_ai_response(user):
     messages = get_messages(user, AI_NAME)
     messages_for_ai = [{"role": "user", "content": msg} for _, msg, _ in messages[-5:]] or [{"role": "user", "content": "こんにちは！"}]
@@ -104,12 +104,7 @@ def generate_ai_response(user):
         )
         return resp.choices[0].message.content.strip()
     except Exception as e:
-        # エラー詳細はログに記録
-        os.makedirs("logs", exist_ok=True)
-        with open("logs/ai_error.log", "a", encoding="utf-8") as f:
-            f.write(f"{now_str()} | {e}\n")
-        # ユーザーには簡潔なメッセージだけ
-        return "AI応答に問題が発生しました"
+        return f"AI応答でエラーが発生しました: {e}"
 
 # --- メインUI ---
 def render():
@@ -152,30 +147,28 @@ def render():
     st.markdown("---")
     st.subheader("📨 メッセージ履歴")
 
-    # --- メッセージ履歴表示（黒背景・最新表示） ---
-    messages = get_messages(user, partner)
-    chat_box_html = "<div id='chat-box' style='height:400px; overflow-y:auto; border:1px solid #ccc; padding:10px; background-color:#000;'>"
-    for sender, msg, msg_type in messages:
-        align = "right" if sender == user else "left"
-        bg = "#1F2F54" if align == "right" else "#333"
-        if msg_type == "stamp" and os.path.exists(msg):
-            chat_box_html += f"<div style='text-align:{align}; margin:10px 0;'><img src='{msg}' style='width:100px; border-radius:10px;'></div>"
-        elif len(msg.strip()) <= 2 and all('\U0001F300' <= c <= '\U0001FAFF' or c in '❤️🔥🎉' for c in msg):
-            chat_box_html += f"<div style='text-align:{align}; margin:5px 0; font-size:40px;'>{msg}</div>"
-        else:
-            chat_box_html += f"<div style='text-align:{align}; margin:5px 0;'><span style='background-color:{bg}; color:white; padding:8px 12px; border-radius:10px; display:inline-block; max-width:80%;'>{msg}</span></div>"
-    chat_box_html += "</div>"
+    # --- 自動更新 ---
+    st_autorefresh(interval=3000, key="auto_refresh")  # 3秒ごと更新
+    chat_placeholder = st.empty()
 
-    st.markdown(chat_box_html, unsafe_allow_html=True)
-    # 最新メッセージを下にスクロール
-    st.markdown("""
-    <script>
-        var chatBox = document.getElementById('chat-box');
-        if (chatBox) { chatBox.scrollTop = chatBox.scrollHeight; }
-    </script>
-    """, unsafe_allow_html=True)
+    def render_chat():
+        messages = get_messages(user, partner)
+        chat_box_html = "<div style='height:400px; overflow-y:auto; border:1px solid #ccc; padding:10px; background-color:#000; color:white;'>"
+        for sender, msg, msg_type in messages:
+            align = "right" if sender == user else "left"
+            bg = "#1F2F54" if align == "right" else "#333"
+            if msg_type == "stamp" and os.path.exists(msg):
+                chat_box_html += f"<div style='text-align:{align}; margin:10px 0;'><img src='{msg}' style='width:100px; border-radius:10px;'></div>"
+            elif len(msg.strip()) <= 2 and all('\U0001F300' <= c <= '\U0001FAFF' or c in '❤️🔥🎉' for c in msg):
+                chat_box_html += f"<div style='text-align:{align}; margin:5px 0; font-size:40px;'>{msg}</div>"
+            else:
+                chat_box_html += f"<div style='text-align:{align}; margin:5px 0;'><span style='background-color:{bg}; color:white; padding:8px 12px; border-radius:10px; display:inline-block; max-width:80%;'>{msg}</span></div>"
+        chat_box_html += "</div>"
+        chat_placeholder.markdown(chat_box_html, unsafe_allow_html=True)
 
-    # --- テキストスタンプ ---
+    render_chat()
+
+    # --- スタンプ（テキスト） ---
     st.markdown("#### 🙂 テキストスタンプ")
     for row in range(0, len(STAMPS), 8):
         cols = st.columns(8)
@@ -185,7 +178,7 @@ def render():
                 if partner == AI_NAME:
                     ai_reply = generate_ai_response(user)
                     save_message(AI_NAME, user, ai_reply)
-                st.session_state["last_message_sent"] = True
+                render_chat()
 
     # --- 画像スタンプ ---
     st.markdown("#### 🖼 画像スタンプ")
@@ -200,7 +193,7 @@ def render():
                     if partner == AI_NAME:
                         ai_reply = generate_ai_response(user)
                         save_message(AI_NAME, user, ai_reply)
-                    st.session_state["last_message_sent"] = True
+                    render_chat()
     else:
         st.info("スタンプ画像を /stamps/ フォルダに追加してください。")
 
@@ -211,7 +204,7 @@ def render():
         if partner == AI_NAME:
             ai_reply = generate_ai_response(user)
             save_message(AI_NAME, user, ai_reply)
-        st.session_state["last_message_sent"] = True
+        render_chat()
 
     # --- フィードバック ---
     st.markdown("---")
