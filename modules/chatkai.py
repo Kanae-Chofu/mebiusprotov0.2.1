@@ -2,7 +2,6 @@
 import streamlit as st
 import sqlite3
 import os
-from streamlit_autorefresh import st_autorefresh
 from modules.user import get_current_user, get_display_name, get_all_users
 from modules.utils import now_str
 from modules.feedback import init_feedback_db, save_feedback, get_feedback
@@ -108,21 +107,20 @@ def get_stamp_images():
 # --- AI応答生成 ---
 def generate_ai_response(user):
     messages = get_messages(user, AI_NAME)
-    messages_for_ai = [{"role": "user", "content": msg} for _, msg, _ in messages[-5:]]
-    if not messages_for_ai:
-        messages_for_ai = [{"role":"user","content":"こんにちは！"}]
+    messages_for_ai = [{"role": "user", "content": msg} for _, msg, _ in messages[-5:]] or [{"role":"user","content":"こんにちは！"}]
 
     try:
         resp = client.chat.completions.create(
-            model="gpt-4o-mini",  # 安定して使えるモデル
-            messages=[{"role":"system","content":"あなたは親切なチャットAIです。"}] + messages_for_ai,
+            model="gpt-5-nano",
+            messages=[{"role":"system","content":"あなたは親切なチャットAIです。過去の会話も踏まえて自然に返答してください。"}] + messages_for_ai,
             max_completion_tokens=150
         )
         content = getattr(resp.choices[0].message, "content", None)
-        return content.strip() if content else "AI応答でエラー: contentが取得できません"
+        if content is None:
+            return "AI応答でエラーが発生しました（message.contentが取得できません）"
+        return content.strip()
     except Exception as e:
-        return f"AI応答でエラー: {e}"
-
+        return f"AI応答でエラーが発生しました: {e}"
 
 # --- メインUI ---
 def render():
@@ -137,13 +135,7 @@ def render():
     st.subheader("💬 1対1チャット空間")
     st.write(f"あなたの表示名： `{get_display_name(user)}`")
 
-    if 'chat_input_active' not in st.session_state:
-        st.session_state.chat_input_active = False
-
-    if not st.session_state.chat_input_active:
-        st_autorefresh(interval=3000, limit=100, key="chat_refresh")
-
-    # --- 友達追加 ---
+    # --- 友達管理 ---
     st.markdown("---")
     st.subheader("👥 友達を管理")
     users_list = get_all_users()
@@ -158,28 +150,27 @@ def render():
             else:
                 add_friend(user, new_friend)
                 st.success(f"{new_friend} を追加しました")
-                st.rerun()
+                st.experimental_rerun()
     with col2:
         if st.button("削除"):
             remove_friend(user, new_friend)
             st.success(f"{new_friend} を削除しました")
-            st.rerun()
+            st.experimental_rerun()
 
     # --- チャット相手 ---
     friends = get_friends(user) + [AI_NAME]
     partner = st.selectbox("チャット相手を選択", friends)
     if not partner:
         return
-    st.session_state.partner = partner
     display_name = AI_NAME if partner == AI_NAME else get_display_name(partner)
     st.write(f"チャット相手： `{display_name}`")
 
     # --- メッセージ履歴 ---
     st.markdown("---")
-    st.subheader("📨 メッセージ履歴（自動更新）")
+    st.subheader("📨 メッセージ履歴")
     messages = get_messages(user, partner)
     st.markdown("<div id='chat-box' style='height:400px; overflow-y:auto; border:1px solid #ccc; padding:10px; background-color:#f9f9f9;'>", unsafe_allow_html=True)
-    for idx, (sender, msg, msg_type) in enumerate(messages):
+    for sender, msg, msg_type in messages:
         align = "right" if sender == user else "left"
         bg = "#1F2F54" if align == "right" else "#426AB3"
         if msg_type == "stamp" and os.path.exists(msg):
@@ -188,25 +179,13 @@ def render():
             st.markdown(f"<div style='text-align:{align}; margin:5px 0;'><span style='font-size:40px;'>{msg}</span></div>", unsafe_allow_html=True)
         else:
             st.markdown(f"<div style='text-align:{align}; margin:5px 0;'><span style='background-color:{bg}; color:#FFFFFF; padding:8px 12px; border-radius:10px; display:inline-block; max-width:80%;'>{msg}</span></div>", unsafe_allow_html=True)
-
-        # 自分のメッセージには削除ボタンを追加
-        if sender == user:
-            if st.button("削除", key=f"del_{idx}"):
-                conn = sqlite3.connect(DB_PATH)
-                try:
-                    c = conn.cursor()
-                    c.execute("DELETE FROM chat_messages WHERE sender=? AND message=? LIMIT 1", (user, msg))
-                    conn.commit()
-                finally:
-                    conn.close()
-                st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
     st.markdown("<script>var chatBox = document.getElementById('chat-box'); chatBox.scrollTop = chatBox.scrollHeight;</script>", unsafe_allow_html=True)
 
     # --- メッセージ入力 ---
     st.markdown("---")
     st.markdown("### 💌 メッセージ入力")
-    st.markdown("#### 🙂 テキストスタンプを送る")
+    st.markdown("#### 🙂 テキストスタンプ")
     for row in range(0, len(STAMPS), 8):
         cols = st.columns(8)
         for i, stamp in enumerate(STAMPS[row:row+8]):
@@ -214,10 +193,13 @@ def render():
                 save_message(user, partner, stamp)
                 if partner == AI_NAME:
                     ai_reply = generate_ai_response(user)
-                    save_message(AI_NAME, user, ai_reply)
-                st.rerun()
+                    if ai_reply.startswith("AI応答でエラー"):
+                        st.error(ai_reply)
+                    else:
+                        save_message(AI_NAME, user, ai_reply)
+                st.experimental_rerun()
 
-    st.markdown("#### 🖼 画像スタンプを送る")
+    st.markdown("#### 🖼 画像スタンプ")
     stamp_images = get_stamp_images()
     if stamp_images:
         cols = st.columns(5)
@@ -228,48 +210,38 @@ def render():
                     save_message(user, partner, img_path, message_type="stamp")
                     if partner == AI_NAME:
                         ai_reply = generate_ai_response(user)
-                        save_message(AI_NAME, user, ai_reply)
-                    st.rerun()
+                        if ai_reply.startswith("AI応答でエラー"):
+                            st.error(ai_reply)
+                        else:
+                            save_message(AI_NAME, user, ai_reply)
+                    st.experimental_rerun()
     else:
         st.info("スタンプ画像がまだありません。`/stamps/` フォルダに画像を追加してください。")
 
-    st.markdown("#### 📤 新しいスタンプを追加")
-    uploaded = st.file_uploader("画像ファイルをアップロード (.png, .jpg, .gif)", type=["png", "jpg", "jpeg", "gif"])
-    if uploaded:
-        save_path = os.path.join("stamps", uploaded.name)
-        with open(save_path, "wb") as f:
-            f.write(uploaded.getbuffer())
-        st.success(f"スタンプ {uploaded.name} を追加しました！")
-        st.rerun()
-
     new_msg = st.chat_input("ここにメッセージを入力してください")
-    st.session_state.chat_input_active = bool(new_msg)
     if new_msg:
-        char_count = len(new_msg)
-        st.caption(f"現在の文字数：{char_count} / 10000")
-        if char_count <= 10000:
-            save_message(user, partner, new_msg)
-            if partner == AI_NAME:
-                ai_reply = generate_ai_response(user)
+        save_message(user, partner, new_msg)
+        if partner == AI_NAME:
+            ai_reply = generate_ai_response(user)
+            if ai_reply.startswith("AI応答でエラー"):
+                st.error(ai_reply)
+            else:
                 save_message(AI_NAME, user, ai_reply)
-            st.rerun()
-        else:
-            st.warning("⚠️ メッセージは10,000字以内で入力してください")
+        st.experimental_rerun()
 
-    # --- 手動フィードバック ---
+    # --- フィードバック ---
     st.markdown("---")
-    st.markdown("### 📝 あなたのフィードバック")
+    st.markdown("### 📝 フィードバック")
     feedback_text = st.text_input("フィードバックを入力", key="feedback_input", max_chars=150)
     if st.button("送信"):
         if feedback_text:
             save_feedback(user, partner, feedback_text)
             st.success("フィードバックを保存しました")
-            st.rerun()
+            st.experimental_rerun()
         else:
             st.warning("フィードバックを入力してください")
 
-    st.markdown("---")
-    st.markdown("### 🕊 過去のフィードバックを振り返る")
+    st.markdown("### 🕊 過去のフィードバック")
     feedback_list = get_feedback(user, partner)
     if feedback_list:
         options = [f"{ts}｜{fb}" for fb, ts in feedback_list]
@@ -278,6 +250,5 @@ def render():
     else:
         st.write("まだフィードバックはありません。")
 
-# --- Streamlit実行 ---
 if __name__ == "__main__":
     render()
