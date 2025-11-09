@@ -1,4 +1,4 @@
-# chatkai_newapi_autorefresh_fixed.py
+# chatkai_newapi_autorefresh_ai_status.py
 import streamlit as st
 import sqlite3
 import os
@@ -108,11 +108,9 @@ def generate_ai_response(user):
 
 # --- メインUI ---
 def render():
+    st.set_page_config(page_title="1対1チャット", layout="wide")
     init_chat_db()
     init_feedback_db()
-
-    if "ai_busy" not in st.session_state:
-        st.session_state.ai_busy = False
 
     user = get_current_user()
     if not user:
@@ -150,13 +148,12 @@ def render():
     st.markdown("---")
     st.subheader("📨 メッセージ履歴")
 
-    # --- 自動更新（AIが忙しくないときのみ） ---
-    if not st.session_state.ai_busy:
-        st_autorefresh(interval=3000, key="auto_refresh")
-
+    # --- 自動更新 ---
+    st_autorefresh(interval=3000, key="auto_refresh")  # 3秒ごと更新
     chat_placeholder = st.empty()
+    ai_status_placeholder = st.empty()  # AI考慮中表示用
 
-    # チャット描画
+    # --- チャット描画 ---
     def render_chat():
         messages = get_messages(user, partner)
         chat_box_html = "<div id='chat-box' style='height:400px; overflow-y:auto; border:1px solid #ccc; padding:10px; background-color:#000; color:white;'>"
@@ -170,8 +167,6 @@ def render():
             else:
                 chat_box_html += f"<div style='text-align:{align}; margin:5px 0;'><span style='background-color:{bg}; color:white; padding:8px 12px; border-radius:10px; display:inline-block; max-width:80%;'>{msg}</span></div>"
         chat_box_html += "</div>"
-
-        # 最新メッセージにスクロール
         chat_box_html += """
         <script>
             var chatBox = document.getElementById('chat-box');
@@ -182,9 +177,7 @@ def render():
         """
         chat_placeholder.markdown(chat_box_html, unsafe_allow_html=True)
 
-    render_chat()
-
-    # --- スタンプ ---
+    # --- スタンプ（テキスト） ---
     st.markdown("#### 🙂 テキストスタンプ")
     for row in range(0, len(STAMPS), 8):
         cols = st.columns(8)
@@ -193,9 +186,11 @@ def render():
                 save_message(user, partner, stamp)
                 if partner == AI_NAME:
                     st.session_state.ai_busy = True
+                    ai_status_placeholder.info("🤖 AI考慮中…")
                     ai_reply = generate_ai_response(user)
                     save_message(AI_NAME, user, ai_reply)
                     st.session_state.ai_busy = False
+                    ai_status_placeholder.empty()
                 render_chat()
 
     # --- 画像スタンプ ---
@@ -210,9 +205,11 @@ def render():
                     save_message(user, partner, img_path, message_type="stamp")
                     if partner == AI_NAME:
                         st.session_state.ai_busy = True
+                        ai_status_placeholder.info("🤖 AI考慮中…")
                         ai_reply = generate_ai_response(user)
                         save_message(AI_NAME, user, ai_reply)
                         st.session_state.ai_busy = False
+                        ai_status_placeholder.empty()
                     render_chat()
     else:
         st.info("スタンプ画像を /stamps/ フォルダに追加してください。")
@@ -223,9 +220,11 @@ def render():
         save_message(user, partner, new_msg)
         if partner == AI_NAME:
             st.session_state.ai_busy = True
+            ai_status_placeholder.info("🤖 AI考慮中…")
             ai_reply = generate_ai_response(user)
             save_message(AI_NAME, user, ai_reply)
             st.session_state.ai_busy = False
+            ai_status_placeholder.empty()
         render_chat()
 
     # --- フィードバック ---
@@ -248,4 +247,6 @@ def render():
         st.write("まだフィードバックはありません。")
 
 if __name__ == "__main__":
+    if "ai_busy" not in st.session_state:
+        st.session_state.ai_busy = False
     render()
