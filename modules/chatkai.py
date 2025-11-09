@@ -103,7 +103,17 @@ def get_stamp_images():
 # --- AI応答生成 ---
 def generate_ai_response(user):
     messages = get_messages(user, AI_NAME)
-    messages_for_ai = [{"role": "user", "content": msg} for _, msg, _ in messages[-5:]] or [{"role": "user", "content": "こんにちは！"}]
+
+    messages_for_ai = []
+    for sender, msg, _ in messages[-5:]:
+        if sender == user:
+            messages_for_ai.append({"role": "user", "content": msg})
+        else:
+            messages_for_ai.append({"role": "assistant", "content": msg})
+
+    if not messages_for_ai:
+        messages_for_ai = [{"role": "user", "content": "こんにちは！"}]
+
     try:
         resp = client.chat.completions.create(
             model="gpt-5-nano",
