@@ -150,12 +150,12 @@ def render():
             else:
                 add_friend(user, new_friend)
                 st.success(f"{new_friend} を追加しました")
-                st.experimental_rerun()
+                st.rerun()
     with col2:
         if st.button("削除"):
             remove_friend(user, new_friend)
             st.success(f"{new_friend} を削除しました")
-            st.experimental_rerun()
+            st.rerun()
 
     # --- チャット相手 ---
     friends = get_friends(user) + [AI_NAME]
@@ -197,7 +197,7 @@ def render():
                         st.error(ai_reply)
                     else:
                         save_message(AI_NAME, user, ai_reply)
-                st.experimental_rerun()
+                st.rerun()
 
     st.markdown("#### 🖼 画像スタンプ")
     stamp_images = get_stamp_images()
@@ -214,7 +214,7 @@ def render():
                             st.error(ai_reply)
                         else:
                             save_message(AI_NAME, user, ai_reply)
-                    st.experimental_rerun()
+                    st.rerun()
     else:
         st.info("スタンプ画像がまだありません。`/stamps/` フォルダに画像を追加してください。")
 
@@ -227,7 +227,7 @@ def render():
                 st.error(ai_reply)
             else:
                 save_message(AI_NAME, user, ai_reply)
-        st.experimental_rerun()
+        st.rerun()
 
     # --- フィードバック ---
     st.markdown("---")
@@ -237,7 +237,7 @@ def render():
         if feedback_text:
             save_feedback(user, partner, feedback_text)
             st.success("フィードバックを保存しました")
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.warning("フィードバックを入力してください")
 
