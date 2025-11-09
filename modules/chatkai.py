@@ -1,4 +1,4 @@
-# chatkai_newapi_autorefresh_v2.py
+# chatkai_newapi_autorefresh_fixed.py
 import streamlit as st
 import sqlite3
 import os
@@ -23,7 +23,7 @@ STAMPS = [
 
 DB_PATH = "db/mebius.db"
 
-# ----------------- DB -----------------
+# --- DB初期化 ---
 def init_chat_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -92,7 +92,7 @@ def get_stamp_images():
     return [os.path.join(stamp_dir, f) for f in os.listdir(stamp_dir)
             if f.lower().endswith((".png", ".jpg", ".jpeg", ".gif"))]
 
-# ----------------- AI応答 -----------------
+# --- AI応答生成 ---
 def generate_ai_response(user):
     messages = get_messages(user, AI_NAME)
     messages_for_ai = [{"role": "user", "content": msg} for _, msg, _ in messages[-5:]] or [{"role": "user", "content": "こんにちは！"}]
@@ -106,30 +106,19 @@ def generate_ai_response(user):
     except Exception as e:
         return f"AI応答でエラーが発生しました: {e}"
 
-# ----------------- チャット描画 -----------------
-def render_chat(user, partner):
-    messages = get_messages(user, partner)
-    for sender, msg, msg_type in messages:
-        is_user = sender == user
-        if msg_type == "stamp" and os.path.exists(msg):
-            st.chat_message("user" if is_user else "assistant").image(msg, width=100)
-        elif all('\U0001F300' <= c <= '\U0001FAFF' or c in '❤️🔥🎉' for c in msg) and len(msg.strip()) <= 2:
-            st.chat_message("user" if is_user else "assistant", avatar=None).markdown(f"<span style='font-size:40px;'>{msg}</span>", unsafe_allow_html=True)
-        else:
-            st.chat_message("user" if is_user else "assistant").text(msg)
-
-# ----------------- メイン -----------------
+# --- メインUI ---
 def render():
-    st.set_page_config(page_title="ChatKAI", layout="wide")
     init_chat_db()
     init_feedback_db()
+
+    if "ai_busy" not in st.session_state:
+        st.session_state.ai_busy = False
 
     user = get_current_user()
     if not user:
         st.warning("ログインしてください（共通ID）")
         return
 
-    st.markdown("<style>div[data-testid='stAppViewContainer']{background-color:#000;}</style>", unsafe_allow_html=True)
     st.subheader("💬 1対1チャット空間")
     st.write(f"あなたの表示名： `{get_display_name(user)}`")
 
@@ -147,33 +136,67 @@ def render():
         else:
             add_friend(user, new_friend)
             st.success(f"{new_friend} を追加しました")
+
     if col2.button("削除"):
         remove_friend(user, new_friend)
         st.success(f"{new_friend} を削除しました")
 
     friends = get_friends(user) + [AI_NAME]
     partner = st.selectbox("チャット相手を選択", friends)
+
     if not partner:
         return
 
     st.markdown("---")
     st.subheader("📨 メッセージ履歴")
 
-    # --- 自動更新 ---
-    st_autorefresh(interval=3000, key="auto_refresh")
-    render_chat(user, partner)
+    # --- 自動更新（AIが忙しくないときのみ） ---
+    if not st.session_state.ai_busy:
+        st_autorefresh(interval=3000, key="auto_refresh")
+
+    chat_placeholder = st.empty()
+
+    # チャット描画
+    def render_chat():
+        messages = get_messages(user, partner)
+        chat_box_html = "<div id='chat-box' style='height:400px; overflow-y:auto; border:1px solid #ccc; padding:10px; background-color:#000; color:white;'>"
+        for sender, msg, msg_type in messages:
+            align = "right" if sender == user else "left"
+            bg = "#1F2F54" if align == "right" else "#333"
+            if msg_type == "stamp" and os.path.exists(msg):
+                chat_box_html += f"<div style='text-align:{align}; margin:10px 0;'><img src='{msg}' style='width:100px; border-radius:10px;'></div>"
+            elif len(msg.strip()) <= 2 and all('\U0001F300' <= c <= '\U0001FAFF' or c in '❤️🔥🎉' for c in msg):
+                chat_box_html += f"<div style='text-align:{align}; margin:5px 0; font-size:40px;'>{msg}</div>"
+            else:
+                chat_box_html += f"<div style='text-align:{align}; margin:5px 0;'><span style='background-color:{bg}; color:white; padding:8px 12px; border-radius:10px; display:inline-block; max-width:80%;'>{msg}</span></div>"
+        chat_box_html += "</div>"
+
+        # 最新メッセージにスクロール
+        chat_box_html += """
+        <script>
+            var chatBox = document.getElementById('chat-box');
+            if (chatBox) {
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+        </script>
+        """
+        chat_placeholder.markdown(chat_box_html, unsafe_allow_html=True)
+
+    render_chat()
 
     # --- スタンプ ---
     st.markdown("#### 🙂 テキストスタンプ")
     for row in range(0, len(STAMPS), 8):
         cols = st.columns(8)
-        for i, stamp in enumerate(STAMPS[row:row+8]):
+        for i, stamp in enumerate(STAMPS[row:row + 8]):
             if cols[i].button(stamp, key=f"stamp_{stamp}_{row}"):
                 save_message(user, partner, stamp)
                 if partner == AI_NAME:
+                    st.session_state.ai_busy = True
                     ai_reply = generate_ai_response(user)
                     save_message(AI_NAME, user, ai_reply)
-                render_chat(user, partner)
+                    st.session_state.ai_busy = False
+                render_chat()
 
     # --- 画像スタンプ ---
     st.markdown("#### 🖼 画像スタンプ")
@@ -186,9 +209,11 @@ def render():
                 if st.button("送信", key=f"send_img_{i}"):
                     save_message(user, partner, img_path, message_type="stamp")
                     if partner == AI_NAME:
+                        st.session_state.ai_busy = True
                         ai_reply = generate_ai_response(user)
                         save_message(AI_NAME, user, ai_reply)
-                    render_chat(user, partner)
+                        st.session_state.ai_busy = False
+                    render_chat()
     else:
         st.info("スタンプ画像を /stamps/ フォルダに追加してください。")
 
@@ -197,9 +222,11 @@ def render():
     if new_msg:
         save_message(user, partner, new_msg)
         if partner == AI_NAME:
+            st.session_state.ai_busy = True
             ai_reply = generate_ai_response(user)
             save_message(AI_NAME, user, ai_reply)
-        render_chat(user, partner)
+            st.session_state.ai_busy = False
+        render_chat()
 
     # --- フィードバック ---
     st.markdown("---")
@@ -211,6 +238,7 @@ def render():
             st.success("フィードバックを保存しました")
         else:
             st.warning("フィードバックを入力してください")
+
     feedback_list = get_feedback(user, partner)
     if feedback_list:
         options = [f"{ts}｜{fb}" for fb, ts in feedback_list]
