@@ -17,7 +17,6 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 AI_NAME = "AIアシスタント"
 
 # --- 絵文字スタンプ ---
-# 実用的なものを30個、UIは1行8個×4行で表示
 STAMPS = [
     "😀","😂","❤️","👍","😢","🎉","🔥","🤔",
     "🥰","😎","🙌","💀","🌟","🍕","☕","🛹",
@@ -115,8 +114,7 @@ def generate_ai_response(user):
         resp = client.chat.completions.create(
             model="gpt-5-nano",
             messages=[{"role":"system","content":"あなたは親切なチャットAIです。過去の会話も踏まえて自然に返答してください。"}] + messages_for_ai,
-            max_completion_tokens=150  # 新API仕様
-            # temperature は削除
+            max_completion_tokens=150
         )
         content = getattr(resp.choices[0].message, "content", None)
         if content is None:
@@ -124,7 +122,6 @@ def generate_ai_response(user):
         return content.strip()
     except Exception as e:
         return f"AI応答でエラーが発生しました: {e}"
-
 
 # --- メインUI ---
 def render():
@@ -181,7 +178,7 @@ def render():
     st.subheader("📨 メッセージ履歴（自動更新）")
     messages = get_messages(user, partner)
     st.markdown("<div id='chat-box' style='height:400px; overflow-y:auto; border:1px solid #ccc; padding:10px; background-color:#f9f9f9;'>", unsafe_allow_html=True)
-    for sender, msg, msg_type in messages:
+    for idx, (sender, msg, msg_type) in enumerate(messages):
         align = "right" if sender == user else "left"
         bg = "#1F2F54" if align == "right" else "#426AB3"
         if msg_type == "stamp" and os.path.exists(msg):
@@ -190,6 +187,18 @@ def render():
             st.markdown(f"<div style='text-align:{align}; margin:5px 0;'><span style='font-size:40px;'>{msg}</span></div>", unsafe_allow_html=True)
         else:
             st.markdown(f"<div style='text-align:{align}; margin:5px 0;'><span style='background-color:{bg}; color:#FFFFFF; padding:8px 12px; border-radius:10px; display:inline-block; max-width:80%;'>{msg}</span></div>", unsafe_allow_html=True)
+
+        # 自分のメッセージには削除ボタンを追加
+        if sender == user:
+            if st.button("削除", key=f"del_{idx}"):
+                conn = sqlite3.connect(DB_PATH)
+                try:
+                    c = conn.cursor()
+                    c.execute("DELETE FROM chat_messages WHERE sender=? AND message=? LIMIT 1", (user, msg))
+                    conn.commit()
+                finally:
+                    conn.close()
+                st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
     st.markdown("<script>var chatBox = document.getElementById('chat-box'); chatBox.scrollTop = chatBox.scrollHeight;</script>", unsafe_allow_html=True)
 
@@ -197,7 +206,6 @@ def render():
     st.markdown("---")
     st.markdown("### 💌 メッセージ入力")
     st.markdown("#### 🙂 テキストスタンプを送る")
-    # スタンプは8個ずつの行で表示
     for row in range(0, len(STAMPS), 8):
         cols = st.columns(8)
         for i, stamp in enumerate(STAMPS[row:row+8]):
