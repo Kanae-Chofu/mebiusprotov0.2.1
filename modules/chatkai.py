@@ -108,20 +108,21 @@ def get_stamp_images():
 # --- AI応答生成 ---
 def generate_ai_response(user):
     messages = get_messages(user, AI_NAME)
-    messages_for_ai = [{"role": "user", "content": msg} for _, msg, _ in messages[-5:]] or [{"role":"user","content":"こんにちは！"}]
+    messages_for_ai = [{"role": "user", "content": msg} for _, msg, _ in messages[-5:]]
+    if not messages_for_ai:
+        messages_for_ai = [{"role":"user","content":"こんにちは！"}]
 
     try:
         resp = client.chat.completions.create(
-            model="gpt-5-nano",
-            messages=[{"role":"system","content":"あなたは親切なチャットAIです。過去の会話も踏まえて自然に返答してください。"}] + messages_for_ai,
+            model="gpt-4o-mini",  # 安定して使えるモデル
+            messages=[{"role":"system","content":"あなたは親切なチャットAIです。"}] + messages_for_ai,
             max_completion_tokens=150
         )
         content = getattr(resp.choices[0].message, "content", None)
-        if content is None:
-            return "AI応答でエラーが発生しました（message.contentが取得できません）"
-        return content.strip()
+        return content.strip() if content else "AI応答でエラー: contentが取得できません"
     except Exception as e:
-        return f"AI応答でエラーが発生しました: {e}"
+        return f"AI応答でエラー: {e}"
+
 
 # --- メインUI ---
 def render():
