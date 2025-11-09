@@ -1,4 +1,4 @@
-# chatkai_newapi_blackbg_scroll.py
+# chatkai_newapi_safe_ui.py
 import streamlit as st
 import sqlite3
 import os
@@ -23,7 +23,6 @@ STAMPS = [
 
 DB_PATH = "db/mebius.db"
 
-
 # --- DB初期化 ---
 def init_chat_db():
     conn = sqlite3.connect(DB_PATH)
@@ -44,7 +43,6 @@ def init_chat_db():
     conn.commit()
     conn.close()
 
-
 def save_message(sender, receiver, message, message_type="text"):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -54,7 +52,6 @@ def save_message(sender, receiver, message, message_type="text"):
     )
     conn.commit()
     conn.close()
-
 
 def get_messages(user, partner):
     conn = sqlite3.connect(DB_PATH)
@@ -66,7 +63,6 @@ def get_messages(user, partner):
     conn.close()
     return rows
 
-
 def get_friends(user):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -75,14 +71,12 @@ def get_friends(user):
     conn.close()
     return res
 
-
 def add_friend(user, friend):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("INSERT OR IGNORE INTO friends (user, friend) VALUES (?, ?)", (user, friend))
     conn.commit()
     conn.close()
-
 
 def remove_friend(user, friend):
     conn = sqlite3.connect(DB_PATH)
@@ -91,7 +85,6 @@ def remove_friend(user, friend):
     conn.commit()
     conn.close()
 
-
 def get_stamp_images():
     stamp_dir = "stamps"
     if not os.path.exists(stamp_dir):
@@ -99,8 +92,7 @@ def get_stamp_images():
     return [os.path.join(stamp_dir, f) for f in os.listdir(stamp_dir)
             if f.lower().endswith((".png", ".jpg", ".jpeg", ".gif"))]
 
-
-# --- AI応答生成 ---
+# --- AI応答生成（安全版） ---
 def generate_ai_response(user):
     messages = get_messages(user, AI_NAME)
     messages_for_ai = [{"role": "user", "content": msg} for _, msg, _ in messages[-5:]] or [{"role": "user", "content": "こんにちは！"}]
@@ -112,8 +104,12 @@ def generate_ai_response(user):
         )
         return resp.choices[0].message.content.strip()
     except Exception as e:
-        return f"AI応答でエラーが発生しました: {e}"
-
+        # エラー詳細はログに記録
+        os.makedirs("logs", exist_ok=True)
+        with open("logs/ai_error.log", "a", encoding="utf-8") as f:
+            f.write(f"{now_str()} | {e}\n")
+        # ユーザーには簡潔なメッセージだけ
+        return "AI応答に問題が発生しました"
 
 # --- メインUI ---
 def render():
@@ -156,56 +152,28 @@ def render():
     st.markdown("---")
     st.subheader("📨 メッセージ履歴")
 
-    # --- メッセージ履歴（黒背景＋自動スクロール） ---
+    # --- メッセージ履歴表示（黒背景・最新表示） ---
     messages = get_messages(user, partner)
-
-    chat_box_html = """
-    <div id='chat-box' style='
-        height: 400px;
-        overflow-y: auto;
-        border: 1px solid #444;
-        padding: 10px;
-        background-color: #000;
-        color: white;
-        border-radius: 8px;
-    '>
-    """
-
+    chat_box_html = "<div id='chat-box' style='height:400px; overflow-y:auto; border:1px solid #ccc; padding:10px; background-color:#000;'>"
     for sender, msg, msg_type in messages:
         align = "right" if sender == user else "left"
         bg = "#1F2F54" if align == "right" else "#333"
         if msg_type == "stamp" and os.path.exists(msg):
-            chat_box_html += f"""
-            <div style='text-align:{align}; margin:10px 0;'>
-                <img src='{msg}' style='width:100px; border-radius:10px;'>
-            </div>
-            """
+            chat_box_html += f"<div style='text-align:{align}; margin:10px 0;'><img src='{msg}' style='width:100px; border-radius:10px;'></div>"
         elif len(msg.strip()) <= 2 and all('\U0001F300' <= c <= '\U0001FAFF' or c in '❤️🔥🎉' for c in msg):
-            chat_box_html += f"""
-            <div style='text-align:{align}; margin:5px 0; font-size:40px;'>{msg}</div>
-            """
+            chat_box_html += f"<div style='text-align:{align}; margin:5px 0; font-size:40px;'>{msg}</div>"
         else:
-            chat_box_html += f"""
-            <div style='text-align:{align}; margin:5px 0;'>
-                <span style='background-color:{bg}; color:white; padding:8px 12px; border-radius:10px; display:inline-block; max-width:80%;'>
-                    {msg}
-                </span>
-            </div>
-            """
-
+            chat_box_html += f"<div style='text-align:{align}; margin:5px 0;'><span style='background-color:{bg}; color:white; padding:8px 12px; border-radius:10px; display:inline-block; max-width:80%;'>{msg}</span></div>"
     chat_box_html += "</div>"
 
-    # 最新メッセージに自動スクロール
-    chat_box_html += """
+    st.markdown(chat_box_html, unsafe_allow_html=True)
+    # 最新メッセージを下にスクロール
+    st.markdown("""
     <script>
         var chatBox = document.getElementById('chat-box');
-        if (chatBox) {
-            chatBox.scrollTop = chatBox.scrollHeight;
-        }
+        if (chatBox) { chatBox.scrollTop = chatBox.scrollHeight; }
     </script>
-    """
-
-    st.markdown(chat_box_html, unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
     # --- テキストスタンプ ---
     st.markdown("#### 🙂 テキストスタンプ")
@@ -263,7 +231,6 @@ def render():
         st.write(f"選択されたフィードバック：{selected}")
     else:
         st.write("まだフィードバックはありません。")
-
 
 if __name__ == "__main__":
     render()
