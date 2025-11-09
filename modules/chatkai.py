@@ -151,9 +151,10 @@ def render():
     st_autorefresh(interval=3000, key="auto_refresh")  # 3秒ごと更新
     chat_placeholder = st.empty()
 
+    # チャット描画部分の render_chat() 内
     def render_chat():
         messages = get_messages(user, partner)
-        chat_box_html = "<div style='height:400px; overflow-y:auto; border:1px solid #ccc; padding:10px; background-color:#000; color:white;'>"
+        chat_box_html = "<div id='chat-box' style='height:400px; overflow-y:auto; border:1px solid #ccc; padding:10px; background-color:#000; color:white;'>"
         for sender, msg, msg_type in messages:
             align = "right" if sender == user else "left"
             bg = "#1F2F54" if align == "right" else "#333"
@@ -164,6 +165,16 @@ def render():
             else:
                 chat_box_html += f"<div style='text-align:{align}; margin:5px 0;'><span style='background-color:{bg}; color:white; padding:8px 12px; border-radius:10px; display:inline-block; max-width:80%;'>{msg}</span></div>"
         chat_box_html += "</div>"
+
+        # 最新メッセージまでスクロールするJS
+        chat_box_html += """
+        <script>
+            var chatBox = document.getElementById('chat-box');
+            if (chatBox) {
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+        </script>
+        """
         chat_placeholder.markdown(chat_box_html, unsafe_allow_html=True)
 
     render_chat()
