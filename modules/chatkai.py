@@ -1,4 +1,4 @@
-# chatkai_newapi_fixed.py
+# chatkai_newapi_blackbg_scroll.py
 import streamlit as st
 import sqlite3
 import os
@@ -103,20 +103,10 @@ def get_stamp_images():
 # --- AI応答生成 ---
 def generate_ai_response(user):
     messages = get_messages(user, AI_NAME)
-
-    messages_for_ai = []
-    for sender, msg, _ in messages[-5:]:
-        if sender == user:
-            messages_for_ai.append({"role": "user", "content": msg})
-        else:
-            messages_for_ai.append({"role": "assistant", "content": msg})
-
-    if not messages_for_ai:
-        messages_for_ai = [{"role": "user", "content": "こんにちは！"}]
-
+    messages_for_ai = [{"role": "user", "content": msg} for _, msg, _ in messages[-5:]] or [{"role": "user", "content": "こんにちは！"}]
     try:
         resp = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-5-nano",
             messages=[{"role": "system", "content": "あなたは親切な日本語のチャットAIです。"}] + messages_for_ai,
             max_completion_tokens=150
         )
@@ -166,22 +156,58 @@ def render():
     st.markdown("---")
     st.subheader("📨 メッセージ履歴")
 
-    # --- メッセージ履歴 ---
+    # --- メッセージ履歴（黒背景＋自動スクロール） ---
     messages = get_messages(user, partner)
-    chat_box_html = "<div style='height:400px; overflow-y:auto; border:1px solid #ccc; padding:10px; background-color:#f9f9f9;'>"
+
+    chat_box_html = """
+    <div id='chat-box' style='
+        height: 400px;
+        overflow-y: auto;
+        border: 1px solid #444;
+        padding: 10px;
+        background-color: #000;
+        color: white;
+        border-radius: 8px;
+    '>
+    """
+
     for sender, msg, msg_type in messages:
         align = "right" if sender == user else "left"
-        bg = "#1F2F54" if align == "right" else "#426AB3"
+        bg = "#1F2F54" if align == "right" else "#333"
         if msg_type == "stamp" and os.path.exists(msg):
-            chat_box_html += f"<div style='text-align:{align}; margin:10px 0;'><img src='{msg}' style='width:100px; border-radius:10px;'></div>"
+            chat_box_html += f"""
+            <div style='text-align:{align}; margin:10px 0;'>
+                <img src='{msg}' style='width:100px; border-radius:10px;'>
+            </div>
+            """
         elif len(msg.strip()) <= 2 and all('\U0001F300' <= c <= '\U0001FAFF' or c in '❤️🔥🎉' for c in msg):
-            chat_box_html += f"<div style='text-align:{align}; margin:5px 0; font-size:40px;'>{msg}</div>"
+            chat_box_html += f"""
+            <div style='text-align:{align}; margin:5px 0; font-size:40px;'>{msg}</div>
+            """
         else:
-            chat_box_html += f"<div style='text-align:{align}; margin:5px 0;'><span style='background-color:{bg}; color:white; padding:8px 12px; border-radius:10px; display:inline-block; max-width:80%;'>{msg}</span></div>"
+            chat_box_html += f"""
+            <div style='text-align:{align}; margin:5px 0;'>
+                <span style='background-color:{bg}; color:white; padding:8px 12px; border-radius:10px; display:inline-block; max-width:80%;'>
+                    {msg}
+                </span>
+            </div>
+            """
+
     chat_box_html += "</div>"
+
+    # 最新メッセージに自動スクロール
+    chat_box_html += """
+    <script>
+        var chatBox = document.getElementById('chat-box');
+        if (chatBox) {
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+    </script>
+    """
+
     st.markdown(chat_box_html, unsafe_allow_html=True)
 
-    # --- スタンプ（テキスト） ---
+    # --- テキストスタンプ ---
     st.markdown("#### 🙂 テキストスタンプ")
     for row in range(0, len(STAMPS), 8):
         cols = st.columns(8)
