@@ -116,7 +116,7 @@ def generate_ai_response(user):
 
     try:
         resp = client.chat.completions.create(
-            model="gpt-5-nano",
+            model="gpt-4o-mini",
             messages=[{"role": "system", "content": "あなたは親切な日本語のチャットAIです。"}] + messages_for_ai,
             max_completion_tokens=150
         )
