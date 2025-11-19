@@ -159,7 +159,6 @@ def get_profile_data(username):
     # 仮のデータ構造
     return {
         "name": username,
-        "handle": f"@{username}",
         "bio": "これは仮の自己紹介です。",
         "followers": 123,
         "following": 45,
