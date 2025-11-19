@@ -10,28 +10,36 @@ def render(current_user):
             "admin": {
                 "handle": "@admin",
                 "bio": "こんにちは！Streamlitでプロフィール画面を作っています。",
-                "followers": 123,
-                "following": 45,
                 "image": None,
                 "posts": []
             },
             "kanae": {
                 "handle": "@kanae",
                 "bio": "物語構造と三国志に夢中な大学生です。",
-                "followers": 321,
-                "following": 88,
                 "image": None,
                 "posts": ["三国志の語り直し、今夜も進行中。"]
             },
             "すする": {
                 "handle": "@susuru",
                 "bio": "ラーメンが好き。中学三年生。",
-                "followers": 321,
-                "following": 88,
                 "image": None,
                 "posts": ["あなたの好きなラーメンは？"]
             }
         }
+
+    # --- 初期フォロー関係 ---
+    if "follow_relations" not in st.session_state:
+        st.session_state.follow_relations = {
+            "kanae": ["admin"],
+            "admin": [],
+            "すする": ["kanae"]
+        }
+
+    def get_following(user):
+        return st.session_state.follow_relations.get(user, [])
+
+    def get_followers(user):
+        return [u for u, follows in st.session_state.follow_relations.items() if user in follows]
 
     # --- 表示するユーザー選択 ---
     selected_user = st.sidebar.selectbox("表示するユーザー", list(st.session_state.users.keys()))
@@ -47,8 +55,6 @@ def render(current_user):
 
         profile["handle"] = st.sidebar.text_input("ハンドル名", profile.get("handle", ""))
         profile["bio"] = st.sidebar.text_area("自己紹介", profile.get("bio", ""))
-        profile["followers"] = st.sidebar.number_input("フォロワー数", min_value=0, value=profile.get("followers", 0))
-        profile["following"] = st.sidebar.number_input("フォロー数", min_value=0, value=profile.get("following", 0))
 
     # --- 表示 ---
     if profile.get("image"):
@@ -61,8 +67,20 @@ def render(current_user):
     st.write(profile.get("bio", ""))
 
     col1, col2 = st.columns(2)
-    col1.metric("フォロー", profile.get("following", 0))
-    col2.metric("フォロワー", profile.get("followers", 0))
+    col1.metric("フォロー", len(get_following(selected_user)))
+    col2.metric("フォロワー", len(get_followers(selected_user)))
+
+    # --- フォローボタン（他人のプロフィールのみ） ---
+    if not is_own_profile:
+        following = get_following(current_user)
+        if selected_user in following:
+            if st.button("フォロー解除"):
+                following.remove(selected_user)
+                st.success(f"{selected_user} のフォローを解除しました")
+        else:
+            if st.button("フォローする"):
+                following.append(selected_user)
+                st.success(f"{selected_user} をフォローしました")
 
     st.write("---")
 
