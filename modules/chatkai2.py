@@ -1,4 +1,3 @@
-# chatkai_newapi_autorefresh_ai_status_no_ai.py
 import streamlit as st
 import sqlite3
 import os
@@ -10,12 +9,10 @@ from streamlit_autorefresh import st_autorefresh
 
 load_dotenv()
 
-STAMPS = [
-    "😀","😂","❤️","👍","😢","🎉","🔥","🤔",
-    "🥰","😎","🙌","💀","🌟","🍕","☕","🛹",
-    "🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼",
-    "🦁","🐮","🐷","🐸","🐵","🦄"
-]
+STAMPS = ["😀","😂","❤️","👍","😢","🎉","🔥","🤔",
+          "🥰","😎","🙌","💀","🌟","🍕","☕","🛹",
+          "🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼",
+          "🦁","🐮","🐷","🐸","🐵","🦄"]
 
 DB_PATH = "db/mebius.db"
 
@@ -29,12 +26,19 @@ def init_chat_db():
         receiver TEXT,
         message TEXT,
         timestamp TEXT,
-        message_type TEXT DEFAULT 'text'
+        message_type TEXT DEFAULT 'text',
+        is_read INTEGER DEFAULT 0
     )''')
     c.execute('''CREATE TABLE IF NOT EXISTS friends (
         user TEXT,
         friend TEXT,
         UNIQUE(user, friend)
+    )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS message_reactions (
+        message_id INTEGER,
+        user TEXT,
+        reaction TEXT,
+        PRIMARY KEY (message_id, user)
     )''')
     conn.commit()
     conn.close()
@@ -52,12 +56,24 @@ def save_message(sender, receiver, message, message_type="text"):
 def get_messages(user, partner):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute('''SELECT sender, message, message_type FROM chat_messages
+    c.execute('''SELECT id, sender, message, message_type FROM chat_messages
                  WHERE (sender=? AND receiver=?) OR (sender=? AND receiver=?)
                  ORDER BY timestamp''', (user, partner, partner, user))
     rows = c.fetchall()
+    c.execute('''UPDATE chat_messages SET is_read=1
+                 WHERE receiver=? AND sender=? AND is_read=0''', (user, partner))
+    conn.commit()
     conn.close()
     return rows
+
+def get_unread_count(user, partner):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('''SELECT COUNT(*) FROM chat_messages
+                 WHERE receiver=? AND sender=? AND is_read=0''', (user, partner))
+    count = c.fetchone()[0]
+    conn.close()
+    return count
 
 def get_friends(user):
     conn = sqlite3.connect(DB_PATH)
@@ -87,6 +103,24 @@ def get_stamp_images():
         os.makedirs(stamp_dir)
     return [os.path.join(stamp_dir, f) for f in os.listdir(stamp_dir)
             if f.lower().endswith((".png", ".jpg", ".jpeg", ".gif"))]
+
+def save_reaction(message_id, user, reaction):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('''INSERT OR REPLACE INTO message_reactions (message_id, user, reaction)
+                 VALUES (?, ?, ?)''', (message_id, user, reaction))
+    conn.commit()
+    conn.close()
+
+def get_reactions(message_id):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('''SELECT reaction, COUNT(*) FROM message_reactions
+                 WHERE message_id=?
+                 GROUP BY reaction''', (message_id,))
+    results = c.fetchall()
+    conn.close()
+    return results
 
 # --- メインUI ---
 def render():
@@ -127,18 +161,20 @@ def render():
     if not partner:
         return
 
+    unread = get_unread_count(user, partner)
+    if unread:
+        st.info(f"📩 {unread}件の未読メッセージがあります")
+
     st.markdown("---")
     st.subheader("📨 メッセージ履歴")
 
-    # --- 自動更新 ---
-    st_autorefresh(interval=3000, key="auto_refresh")  # 3秒ごと更新
+    st_autorefresh(interval=3000, key="auto_refresh")
     chat_placeholder = st.empty()
 
-    # --- チャット描画 ---
     def render_chat():
         messages = get_messages(user, partner)
         chat_box_html = "<div id='chat-box' style='height:400px; overflow-y:auto; border:1px solid #ccc; padding:10px; background-color:#000; color:white;'>"
-        for sender, msg, msg_type in messages:
+        for msg_id, sender, msg, msg_type in messages:
             align = "right" if sender == user else "left"
             bg = "#1F2F54" if align == "right" else "#333"
             if msg_type == "stamp" and os.path.exists(msg):
@@ -147,17 +183,22 @@ def render():
                 chat_box_html += f"<div style='text-align:{align}; margin:5px 0; font-size:40px;'>{msg}</div>"
             else:
                 chat_box_html += f"<div style='text-align:{align}; margin:5px 0;'><span style='background-color:{bg}; color:white; padding:8px 12px; border-radius:10px; display:inline-block; max-width:80%;'>{msg}</span></div>"
-        chat_box_html += "</div>"
-        chat_box_html += """
-        <script>
-            var chatBox = document.getElementById('chat-box');
-            if (chatBox) {
-                chatBox.scrollTop = chatBox.scrollHeight;
-            }
-        </script>
-        """
+
+            # リアクション表示
+            reactions = get_reactions(msg_id)
+            if reactions:
+                reaction_str = " ".join([f"{r}×{n}" for r, n in reactions])
+                chat_box_html += f"<div style='text-align:{align}; font-size:14px; color:gray;'>{reaction_str}</div>"
+
+            # いいねボタン（Streamlit UI）
+            if st.button("👍", key=f"like_{msg_id}"):
+                save_reaction(msg_id, user, "👍")
+                render_chat()
+
+        chat_box_html += "</div><script>var chatBox = document.getElementById('chat-box'); if (chatBox) { chatBox.scrollTop = chatBox.scrollHeight; }</script>"
         chat_placeholder.markdown(chat_box_html, unsafe_allow_html=True)
 
+    # --- スタンプ（テ
     # --- スタンプ（テキスト） ---
     st.markdown("#### 🙂 テキストスタンプ")
     for row in range(0, len(STAMPS), 8):
@@ -187,6 +228,9 @@ def render():
         save_message(user, partner, new_msg)
         render_chat()
 
+    # --- チャット描画（初期表示） ---
+    render_chat()
+
     # --- フィードバック ---
     st.markdown("---")
     st.subheader("📝 フィードバック")
@@ -205,6 +249,4 @@ def render():
         st.write(f"選択されたフィードバック：{selected}")
     else:
         st.write("まだフィードバックはありません。")
-
-if __name__ == "__main__":
-    render()
+        
