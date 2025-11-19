@@ -13,14 +13,12 @@ from modules.user import (
 from modules import board, karitunagari, chatkai, chatkai2, profilepagev2
 from modules.utils import now_str
 
-# =====================================================
-# 🔰 初期設定
-# =====================================================
+# --- 初期設定 ---
 if "db_initialized" not in st.session_state:
     init_user_db()
     st.session_state.db_initialized = True
 
-# ダークモードCSS
+# --- ダークモードCSS ---
 st.markdown("""
 <style>
 body, .stApp { background-color: #000000; color: #FFFFFF; }
@@ -34,9 +32,7 @@ button { background-color: #426AB3 !important; color:#FFFFFF !important; border:
 st.title("めびうす redesign")
 st.caption("問いと沈黙から始まる、関係性の設計空間")
 
-# =====================================================
-# 🔐 ログイン処理
-# =====================================================
+# --- ログイン処理 ---
 user = get_current_user()
 
 if user is None:
@@ -61,9 +57,7 @@ if user is None:
             st.error(f"登録失敗：{result}")
     st.stop()
 
-# =====================================================
-# 🪞 表示名・仮ID編集
-# =====================================================
+# --- 表示名・仮ID編集 ---
 st.markdown("---")
 show_editor = st.checkbox("🪞 表示名・仮IDを編集する", value=False, key="edit_checkbox")
 
@@ -83,21 +77,17 @@ if show_editor:
         st.success("仮IDを更新しました")
         st.rerun()
 
-# =====================================================
-# 🚪 空間選択
-# =====================================================
+# --- 空間選択 ---
 st.markdown("---")
 st.subheader("🧭 空間を選んでください")
 space = st.radio(
     "空間",
     ["掲示板", "仮つながりスペース", "1対1チャット", "プロフィール"],
     horizontal=True,
-    key="space_radio"  # ←ユニークキーを追加
+    key="space_radio"
 )
 
-# =====================================================
-# 🧩 各モードの描画
-# =====================================================
+# --- 各モード描画 ---
 if space == "掲示板":
     board.render()
 
@@ -108,4 +98,4 @@ elif space == "1対1チャット":
     chatkai2.render()
 
 elif space == "プロフィール":
-    profilepagev2.render()
+    profilepagev2.render(user)  # ← ログインユーザーを渡す
