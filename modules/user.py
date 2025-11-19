@@ -152,3 +152,16 @@ def get_all_users():
         return users
     finally:
         conn.close()
+
+# modules/user.py に追加
+def get_profile_data(username):
+    # SQLiteなどからプロフィール情報を取得する処理
+    # 仮のデータ構造
+    return {
+        "name": username,
+        "handle": f"@{username}",
+        "bio": "これは仮の自己紹介です。",
+        "followers": 123,
+        "following": 45,
+        "image": None  # 画像パスやバイナリ
+    }
