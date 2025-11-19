@@ -10,7 +10,7 @@ from modules.user import (
     get_display_name,
     get_kari_id
 )
-from modules import board, karitunagari, chatkai, chatkai2
+from modules import board, karitunagari, chatkai, chatkai2, profilepagev2
 from modules.utils import now_str
 
 # =====================================================
@@ -108,32 +108,4 @@ elif space == "1対1チャット":
     chatkai2.render()
 
 elif space == "プロフィール":
-    st.subheader("🧬 プロフィール画面")
-
-    # ユーザープロフィール取得
-    def get_user_profile(username):
-        conn = sqlite3.connect("db/mebius.db")
-        try:
-            c = conn.cursor()
-            c.execute(
-                "SELECT display_name, kari_id, registered_at FROM users WHERE username=?",
-                (username,)
-            )
-            result = c.fetchone()
-            if result:
-                return {
-                    "display_name": result[0],
-                    "kari_id": result[1],
-                    "registered_at": result[2]
-                }
-            return None
-        finally:
-            conn.close()
-
-    profile = get_user_profile(user)
-    if profile:
-        st.write(f"**表示名:** {profile['display_name']}")
-        st.write(f"**仮ID:** {profile['kari_id']}")
-        st.write(f"**登録日時:** {profile['registered_at']}")
-    else:
-        st.warning("プロフィール情報が見つかりません")
+    profilepagev2.render()
