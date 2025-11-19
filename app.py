@@ -10,7 +10,7 @@ from modules.user import (
     get_display_name,
     get_kari_id
 )
-from modules import board, karitunagari, chatkai
+from modules import board, karitunagari, chatkai, chatkai2
 from modules.utils import now_str
 
 # =====================================================
@@ -105,7 +105,7 @@ elif space == "仮つながりスペース":
     karitunagari.render()
 
 elif space == "1対1チャット":
-    chatkai.render()
+    chatkai2.render()
 
 elif space == "プロフィール":
     st.subheader("🧬 プロフィール画面")
