@@ -11,21 +11,21 @@ USERS_TABLE = "users"
 FRIENDS_TABLE = "friends"
 
 # 🧱 DB初期化（usersテーブル）
+# modules/user.py
 def init_user_db():
-    conn = sqlite3.connect(DB_PATH)
-    try:
-        c = conn.cursor()
-        c.execute(f'''CREATE TABLE IF NOT EXISTS {USERS_TABLE} (
+    conn = sqlite3.connect("db/mebius.db")
+    c = conn.cursor()
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS user_profiles (
             username TEXT PRIMARY KEY,
             password TEXT,
             display_name TEXT,
-            kari_id TEXT,
-            registered_at TEXT
-        )''')
-        conn.commit()
-    finally:
-        conn.close()
-
+            kari_id TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
+    
 # 🆕 ユーザー登録
 def register_user(username, password, display_name="", kari_id=""):
     username = username.strip()
