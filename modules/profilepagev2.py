@@ -14,8 +14,14 @@ def render():
     if "users" not in st.session_state:
         st.session_state.users = {}
 
-    # --- 全ユーザーを初期化（仮） ---
+    # --- 全ユーザー一覧を取得 ---
     all_usernames = get_all_users()
+
+    # current_user が未登録なら追加
+    if current_user not in all_usernames:
+        all_usernames.append(current_user)
+
+    # --- ユーザー情報を初期化（未登録なら空プロフィールを作成） ---
     for username in all_usernames:
         if username not in st.session_state.users:
             st.session_state.users[username] = {
@@ -26,7 +32,8 @@ def render():
             }
 
     # --- 表示対象ユーザーを選択 ---
-    selected_user = st.selectbox("表示するユーザー", all_usernames, index=all_usernames.index(current_user))
+    default_index = all_usernames.index(current_user)
+    selected_user = st.selectbox("表示するユーザー", all_usernames, index=default_index)
     profile = st.session_state.users[selected_user]
     is_own_profile = (selected_user == current_user)
 
@@ -37,12 +44,13 @@ def render():
         if uploaded_image:
             profile["image"] = Image.open(uploaded_image)
 
-        profile["handle"] = current_user  # ハンドルネームはユーザー名と一致
+        # ハンドルネームはユーザー名と一致（編集不可）
+        profile["handle"] = current_user
         st.text(f"ハンドルネーム： {profile['handle']}")
 
         profile["bio"] = st.text_area("自己紹介", profile.get("bio", ""))
 
-    # --- プロフィール表示 ---
+    # --- プロフィール表示（誰でも閲覧可能） ---
     st.markdown("### プロフィール")
     if profile.get("image"):
         st.image(profile["image"], width=150)
