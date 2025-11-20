@@ -41,22 +41,23 @@ def render(current_user):
     def get_followers(user):
         return [u for u, follows in st.session_state.follow_relations.items() if user in follows]
 
-    # --- 表示するユーザー選択 ---
-    selected_user = st.sidebar.selectbox("表示するユーザー", list(st.session_state.users.keys()))
+    # --- 表示するユーザー選択（メイン画面に移動） ---
+    selected_user = st.selectbox("表示するユーザー", list(st.session_state.users.keys()))
     profile = st.session_state.users[selected_user]
     is_own_profile = (selected_user == current_user)
 
-    # --- 編集UI（自分のみ） ---
+    # --- プロフィール設定（自分のみ） ---
     if is_own_profile:
-        st.sidebar.title("プロフィール設定")
-        uploaded_image = st.sidebar.file_uploader("プロフィール画像をアップロード", type=["png", "jpg", "jpeg"])
+        st.markdown("### プロフィール設定")
+        uploaded_image = st.file_uploader("プロフィール画像をアップロード", type=["png", "jpg", "jpeg"])
         if uploaded_image:
             profile["image"] = Image.open(uploaded_image)
 
-        profile["handle"] = st.sidebar.text_input("ハンドル名", profile.get("handle", ""))
-        profile["bio"] = st.sidebar.text_area("自己紹介", profile.get("bio", ""))
+        profile["handle"] = st.text_input("ハンドル名", profile.get("handle", ""))
+        profile["bio"] = st.text_area("自己紹介", profile.get("bio", ""))
 
-    # --- 表示 ---
+    # --- プロフィール表示 ---
+    st.markdown("### プロフィール")
     if profile.get("image"):
         st.image(profile["image"], width=150)
     else:
@@ -86,7 +87,7 @@ def render(current_user):
 
     # --- 投稿（自分のみ） ---
     if is_own_profile:
-        st.subheader("投稿する")
+        st.markdown("### 投稿する")
         new_post = st.text_area("新しい投稿を入力", "")
         if st.button("投稿"):
             if new_post.strip():
@@ -96,7 +97,7 @@ def render(current_user):
                 st.warning("投稿内容が空です。")
 
     # --- 投稿表示（誰でも閲覧可能） ---
-    st.subheader("最近の投稿")
+    st.markdown("### 最近の投稿")
     if profile.get("posts"):
         for post in profile["posts"]:
             st.write(f"💬 {post}")
