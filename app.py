@@ -98,4 +98,4 @@ elif space == "1対1チャット":
     chatkai2.render()
 
 elif space == "プロフィール":
-    profilepagev2.render(user)  # ← ログインユーザーを渡す
+    profilepagev2.render()  # ← ログインユーザーを渡す
