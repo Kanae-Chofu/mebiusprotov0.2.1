@@ -1,31 +1,28 @@
-# 共通ユーザー管理モジュール
 import streamlit as st
 import sqlite3
 import bcrypt
 from modules.utils import now_str
 
 DB_PATH = "db/mebius.db"
-
-# 定数（設計意図の明示）
 USERS_TABLE = "users"
 FRIENDS_TABLE = "friends"
 
 # 🧱 DB初期化（usersテーブル）
-# modules/user.py
 def init_user_db():
-    conn = sqlite3.connect("db/mebius.db")
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS user_profiles (
+    c.execute(f'''
+        CREATE TABLE IF NOT EXISTS {USERS_TABLE} (
             username TEXT PRIMARY KEY,
             password TEXT,
             display_name TEXT,
-            kari_id TEXT
+            kari_id TEXT,
+            registered_at TEXT
         )
     ''')
     conn.commit()
     conn.close()
-    
+
 # 🆕 ユーザー登録
 def register_user(username, password, display_name="", kari_id=""):
     username = username.strip()
@@ -61,7 +58,7 @@ def login_user(username, password):
         return True
     return False
 
-# 🧠 表示名取得（チャット用）
+# 🧠 表示名取得
 def get_display_name(username):
     conn = sqlite3.connect(DB_PATH)
     try:
@@ -72,7 +69,7 @@ def get_display_name(username):
     finally:
         conn.close()
 
-# 🕶️ 仮ID取得（仮つながりスペース用）
+# 🕶️ 仮ID取得
 def get_kari_id(username):
     conn = sqlite3.connect(DB_PATH)
     try:
@@ -107,7 +104,7 @@ def update_kari_id(username, new_kari_id):
     finally:
         conn.close()
 
-# 友達追加 1:1チャット用
+# 友達追加
 def add_friend(username, friend_username):
     conn = sqlite3.connect(DB_PATH)
     try:
@@ -123,7 +120,7 @@ def add_friend(username, friend_username):
     finally:
         conn.close()
 
-# 友達一覧取得 1:1チャット用
+# 友達一覧取得
 def get_friends(username):
     conn = sqlite3.connect(DB_PATH)
     try:
@@ -137,30 +134,31 @@ def get_friends(username):
 def logout():
     st.session_state.username = None
 
-# modules/user.py の末尾などに追加
-
-import sqlite3
-
-DB_PATH = "db/mebius.db"
-
+# 🔍 全ユーザー取得（プロフィール・チャット共通）
 def get_all_users():
     conn = sqlite3.connect(DB_PATH)
     try:
         c = conn.cursor()
-        c.execute("SELECT username FROM user_profiles ORDER BY username")
-        users = [row[0] for row in c.fetchall()]
-        return users
+        c.execute(f"SELECT username FROM {USERS_TABLE} ORDER BY username")
+        return [row[0] for row in c.fetchall()]
     finally:
         conn.close()
 
-# modules/user.py に追加
+# 🧾 プロフィール情報取得（必要に応じて拡張）
 def get_profile_data(username):
-    # SQLiteなどからプロフィール情報を取得する処理
-    # 仮のデータ構造
-    return {
-        "name": username,
-        "bio": "これは仮の自己紹介です。",
-        "followers": 123,
-        "following": 45,
-        "image": None  # 画像パスやバイナリ
-    }
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        c = conn.cursor()
+        c.execute(f"SELECT display_name, kari_id FROM {USERS_TABLE} WHERE username=?", (username,))
+        row = c.fetchone()
+        return {
+            "name": username,
+            "display_name": row[0] if row else username,
+            "kari_id": row[1] if row else "",
+            "bio": "",  # 必要に応じて追加
+            "followers": 0,
+            "following": 0,
+            "image": None
+        }
+    finally:
+        conn.close()
