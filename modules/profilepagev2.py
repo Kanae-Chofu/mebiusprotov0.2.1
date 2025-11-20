@@ -14,7 +14,8 @@ def render():
     if "users" not in st.session_state:
         st.session_state.users = {}
 
-    # --- 全ユーザー一覧を取得 ---
+    # --- 全ユーザー一覧
+    # を取得 ---
     all_usernames = get_all_users()
 
     # current_user が未登録なら追加
