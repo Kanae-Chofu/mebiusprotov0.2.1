@@ -1,26 +1,32 @@
 import streamlit as st
 from PIL import Image
+from modules.user import get_current_user  # ← 1:1チャットと同じユーザー取得関数を使う
 
-def render(current_user):
+def render():
     st.title("プロフィール画面")
+
+    current_user = get_current_user()
+    if not current_user:
+        st.warning("ログインしてください")
+        return
 
     # --- 初期ユーザー情報 ---
     if "users" not in st.session_state:
         st.session_state.users = {
             "admin": {
-                "handle": "@admin",
+                "handle": "admin",
                 "bio": "こんにちは！Streamlitでプロフィール画面を作っています。",
                 "image": None,
                 "posts": []
             },
             "kanae": {
-                "handle": "@kanae",
+                "handle": "kanae",
                 "bio": "物語構造と三国志に夢中な大学生です。",
                 "image": None,
                 "posts": ["三国志の語り直し、今夜も進行中。"]
             },
             "すする": {
-                "handle": "@susuru",
+                "handle": "すする",
                 "bio": "ラーメンが好き。中学三年生。",
                 "image": None,
                 "posts": ["あなたの好きなラーメンは？"]
@@ -53,7 +59,10 @@ def render(current_user):
         if uploaded_image:
             profile["image"] = Image.open(uploaded_image)
 
-        profile["handle"] = st.text_input("ハンドル名", profile.get("handle", ""))
+        # ハンドルネームをチャットのユーザー名に固定（@なし）
+        profile["handle"] = current_user
+        st.text(f"ハンドルネーム： {profile['handle']}")  # 表示のみ
+
         profile["bio"] = st.text_area("自己紹介", profile.get("bio", ""))
 
     # --- プロフィール表示 ---
@@ -64,7 +73,7 @@ def render(current_user):
         st.text("プロフィール画像なし")
 
     st.subheader(selected_user)
-    st.text(profile.get("handle", ""))
+    st.text(f"ハンドルネーム： {profile.get('handle', '')}")
     st.write(profile.get("bio", ""))
 
     col1, col2 = st.columns(2)
