@@ -214,6 +214,7 @@ def render():
     st.subheader("💬 1対1チャット空間")
     st.write(f"あなたの表示名： `{get_display_name(user)}`")
 
+    # --- 友達管理 ---
     st.markdown("---")
     st.subheader("👥 友達を管理")
     users_list = get_all_users()
@@ -242,6 +243,7 @@ def render():
     if unread:
         st.info(f"📩 {unread}件の未読メッセージがあります")
 
+    # --- チャット履歴 ---
     st.markdown("---")
     st.subheader("📨 メッセージ履歴")
     st_autorefresh(interval=3000, key="auto_refresh")
@@ -301,6 +303,7 @@ def render():
 
     render_chat()
 
+    # --- テキストスタンプ ---
     st.markdown("#### 🙂 テキストスタンプ")
     for row in range(0, len(STAMPS), 8):
         cols = st.columns(8)
@@ -309,6 +312,7 @@ def render():
                 save_message(user, partner, stamp)
                 st.rerun()
 
+    # --- 画像スタンプ ---
     st.markdown("#### 🖼 画像スタンプ")
     stamp_images = get_stamp_images()
     if stamp_images:
@@ -322,11 +326,13 @@ def render():
     else:
         st.info("スタンプ画像を /stamps/ フォルダに追加してください。")
 
+    # --- テキスト入力 ---
     new_msg = st.chat_input("ここにメッセージを入力してください")
     if new_msg:
         save_message(user, partner, new_msg)
         st.rerun()
 
+    # --- フィードバック ---
     st.markdown("---")
     st.subheader("📝 フィードバック")
     feedback_text = st.text_input("フィードバックを入力", key="feedback_input", max_chars=150)
