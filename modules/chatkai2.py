@@ -202,6 +202,8 @@ def get_feedback(sender, receiver):
 
 # --- メインUI ---
 # --- チャット描画（初期表示） ---
+# --- メインUI ---
+# --- チャット描画（初期表示） ---
 def render():
     st.set_page_config(page_title="1対1チャット", layout="wide")
     init_db()
@@ -247,59 +249,28 @@ def render():
     st.markdown("---")
     st.subheader("📨 メッセージ履歴")
     st_autorefresh(interval=3000, key="auto_refresh")
-    chat_placeholder = st.empty()
 
     def render_chat():
         messages = get_messages(user, partner)
-        chat_box_html = """
-        <div id='chat-box' style='height:400px; overflow-y:auto; border:1px solid #ccc; padding:10px; background-color:#000; color:white;'>
-        """
-
         for msg_id, sender, msg, msg_type in messages:
-            align = "right" if sender == user else "left"
-            bg = "#1F2F54" if align == "right" else "#333"
+            align = "右" if sender == user else "左"
 
             if msg_type == "stamp" and os.path.exists(msg):
-                chat_box_html += f"""
-                <div style='text-align:{align}; margin:10px 0;'>
-                    <img src='{msg}' style='width:100px; border-radius:10px;'>
-                </div>
-                """
+                st.image(msg, width=100)
             elif len(msg.strip()) <= 2 and all('\U0001F300' <= c <= '\U0001FAFF' or c in '❤️🔥🎉' for c in msg):
-                chat_box_html += f"""
-                <div style='text-align:{align}; margin:5px 0; font-size:40px;'>{msg}</div>
-                """
+                st.markdown(f"<div style='font-size:40px;'>{msg}</div>", unsafe_allow_html=True)
             else:
-                chat_box_html += f"""
-                <div style='text-align:{align}; margin:5px 0;'>
-                    <span style='background-color:{bg}; color:white; padding:8px 12px; border-radius:10px; display:inline-block; max-width:80%;'>
-                        {msg}
-                    </span>
-                </div>
-                """
+                # 吹き出しをやめて、シンプルにテキストだけ表示
+                st.write(f"{align}： {msg}")
 
             reactions = get_reactions(msg_id)
             if reactions:
                 reaction_str = " ".join([f"{r}×{n}" for r, n in reactions])
-                chat_box_html += f"""
-                <div style='text-align:{align}; font-size:14px; color:gray;'>{reaction_str}</div>
-                """
+                st.caption(reaction_str)
 
             if st.button("👍", key=f"like_{msg_id}"):
                 save_reaction(msg_id, user, "👍")
                 st.rerun()
-
-        chat_box_html += """
-        </div>
-        <script>
-            var chatBox = document.getElementById('chat-box');
-            if (chatBox) {
-                chatBox.scrollTop = chatBox.scrollHeight;
-            }
-        </script>
-        """
-
-        chat_placeholder.markdown(chat_box_html, unsafe_allow_html=True)
 
     render_chat()
 
