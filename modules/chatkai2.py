@@ -201,53 +201,8 @@ def get_feedback(sender, receiver):
     return results
 
 # --- メインUI ---
-def render():
-    st.set_page_config(page_title="1対1チャット", layout="wide")
-    init_db()
-
-    user = get_current_user()
-    if not user:
-        st.warning("ログインしてください（共通ID）")
-        return
-
-    st.subheader("💬 1対1チャット空間")
-    st.write(f"あなたの表示名： `{get_display_name(user)}`")
-
-    # --- 友達管理 ---
-    st.markdown("---")
-    st.subheader("👥 友達を管理")
-    users_list = get_all_users()
-    new_friend = st.text_input("追加または削除するユーザー名", key="add_friend_input", max_chars=64)
-    col1, col2 = st.columns(2)
-    if col1.button("追加"):
-        if new_friend == user:
-            st.error("自分自身は追加できません")
-        elif new_friend not in users_list:
-            st.error("存在しないユーザーです")
-        else:
-            add_friend(user, new_friend)
-            st.success(f"{new_friend} を追加しました")
-
-    if col2.button("削除"):
-        remove_friend(user, new_friend)
-        st.success(f"{new_friend} を削除しました")
-
-    friends = get_friends(user)
-    partner = st.selectbox("チャット相手を選択", friends)
-
-    if not partner:
-        return
-
-    unread = get_unread_count(user, partner)
-    if unread:
-        st.info(f"📩 {unread}件の未読メッセージがあります")
-
-    st.markdown("---")
-    st.subheader("📨 メッセージ履歴")
-    st_autorefresh(interval=3000, key="auto_refresh")
-    chat_placeholder = st.empty()
-
-    def render_chat():
+    # --- チャット描画（初期表示） ---
+    def render():
         messages = get_messages(user, partner)
         chat_box_html = """
         <div id='chat-box' style='height:400px; overflow-y:auto; border:1px solid #ccc; padding:10px; background-color:#000; color:white;'>
@@ -301,3 +256,54 @@ def render():
         """
 
         chat_placeholder.markdown(chat_box_html, unsafe_allow_html=True)
+
+    render_chat()
+
+    # --- テキストスタンプ ---
+    st.markdown("#### 🙂 テキストスタンプ")
+    for row in range(0, len(STAMPS), 8):
+        cols = st.columns(8)
+        for i, stamp in enumerate(STAMPS[row:row + 8]):
+            if cols[i].button(stamp, key=f"stamp_{stamp}_{row}"):
+                save_message(user, partner, stamp)
+                st.rerun()
+
+    # --- 画像スタンプ ---
+    st.markdown("#### 🖼 画像スタンプ")
+    stamp_images = get_stamp_images()
+    if stamp_images:
+        cols = st.columns(5)
+        for i, img_path in enumerate(stamp_images):
+            with cols[i % 5]:
+                st.image(img_path, width=60)
+                if st.button("送信", key=f"send_img_{i}"):
+                    save_message(user, partner, img_path, message_type="stamp")
+                    st.rerun()
+    else:
+        st.info("スタンプ画像を /stamps/ フォルダに追加してください。")
+
+    # --- テキスト入力 ---
+    new_msg = st.chat_input("ここにメッセージを入力してください")
+    if new_msg:
+        save_message(user, partner, new_msg)
+        st.rerun()
+
+    # --- フィードバック ---
+    st.markdown("---")
+    st.subheader("📝 フィードバック")
+    feedback_text = st.text_input("フィードバックを入力", key="feedback_input", max_chars=150)
+    if st.button("送信", key="send_feedback"):
+        if feedback_text:
+            save_feedback(user, partner, feedback_text)
+            st.success("フィードバックを保存しました")
+            st.rerun()
+        else:
+            st.warning("フィードバックを入力してください")
+
+    feedback_list = get_feedback(user, partner)
+    if feedback_list:
+        options = [f"{ts}｜{fb}" for fb, ts in feedback_list]
+        selected = st.selectbox("表示したいフィードバックを選択してください", options)
+        st.write(f"選択されたフィードバック：{selected}")
+    else:
+        st.write("まだフィードバックはありません。")
