@@ -1,4 +1,4 @@
-# app.py
+# chatkai2.py
 
 import streamlit as st
 import sqlite3
