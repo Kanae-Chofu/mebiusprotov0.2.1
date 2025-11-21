@@ -249,7 +249,7 @@ def render():
     st_autorefresh(interval=3000, key="auto_refresh")
     chat_placeholder = st.empty()
 
-        def render_chat():
+    def render_chat():
         messages = get_messages(user, partner)
         chat_box_html = """
         <div id='chat-box' style='height:400px; overflow-y:auto; border:1px solid #ccc; padding:10px; background-color:#000; color:white;'>
@@ -299,5 +299,55 @@ def render():
         </script>
         """
 
-        # ✅ HTMLを正しく描画するように修正
         chat_placeholder.markdown(chat_box_html, unsafe_allow_html=True)
+
+    render_chat()
+
+    # --- テキストスタンプ ---
+    st.markdown("#### 🙂 テキストスタンプ")
+    for row in range(0, len(STAMPS), 8):
+        cols = st.columns(8)
+        for i, stamp in enumerate(STAMPS[row:row + 8]):
+            if cols[i].button(stamp, key=f"stamp_{stamp}_{row}"):
+                save_message(user, partner, stamp)
+                st.rerun()
+
+    # --- 画像スタンプ ---
+    st.markdown("#### 🖼 画像スタンプ")
+    stamp_images = get_stamp_images()
+    if stamp_images:
+        cols = st.columns(5)
+        for i, img_path in enumerate(stamp_images):
+            with cols[i % 5]:
+                st.image(img_path, width=60)
+                if st.button("送信", key=f"send_img_{i}"):
+                    save_message(user, partner, img_path, message_type="stamp")
+                    st.rerun()
+    else:
+        st.info("スタンプ画像を /stamps/ フォルダに追加してください。")
+
+    # --- テキスト入力 ---
+    new_msg = st.chat_input("ここにメッセージを入力してください")
+    if new_msg:
+        save_message(user, partner, new_msg)
+        st.rerun()
+
+    # --- フィードバック ---
+    st.markdown("---")
+    st.subheader("📝 フィードバック")
+    feedback_text = st.text_input("フィードバックを入力", key="feedback_input", max_chars=150)
+    if st.button("送信", key="send_feedback"):
+        if feedback_text:
+            save_feedback(user, partner, feedback_text)
+            st.success("フィードバックを保存しました")
+            st.rerun()
+        else:
+            st.warning("フィードバックを入力してください")
+
+    feedback_list = get_feedback(user, partner)
+    if feedback_list:
+        options = [f"{ts}｜{fb}" for fb, ts in feedback_list]
+        selected = st.selectbox("表示したいフィードバックを選択してください", options)
+        st.write(f"選択されたフィードバック：{selected}")
+    else:
+        st.write("まだフィードバックはありません。")
