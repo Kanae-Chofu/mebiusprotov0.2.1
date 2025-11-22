@@ -7,10 +7,9 @@ unidic_lite
 streamlit-autorefresh
 Credentials
 python-dotenv
-Flow
-google.oauth2.credentials
+#Flow
 google-auth
 google-auth-oauthlib    
-google_auth_oauthlib.flow
+google-api-python-client
 emoji
 validators
