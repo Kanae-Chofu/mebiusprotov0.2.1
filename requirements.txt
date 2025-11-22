@@ -13,3 +13,4 @@ google-auth-oauthlib
 google-api-python-client
 emoji
 validators
+openai>=1.0.0
